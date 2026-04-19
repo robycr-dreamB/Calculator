@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>1.9 Clipboard Calculator</title>
+  <style>
+    :root {
+      --bg: #f4efe4;
+      --panel: rgba(255, 252, 246, 0.9);
+      --ink: #17221f;
+      --muted: #5d6d67;
+      --accent: #16624f;
+      --accent-strong: #0f4738;
+      --line: rgba(23, 34, 31, 0.12);
+      --good: #1d7a52;
+      --warn: #9b5c00;
+      --shadow: 0 18px 60px rgba(23, 34, 31, 0.14);
+      --radius: 26px;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(22, 98, 79, 0.14), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(198, 157, 48, 0.16), transparent 30%),
+        linear-gradient(180deg, #f8f3ea 0%, var(--bg) 100%);
+      color: var(--ink);
+    }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+    }
+
+    .app {
+      width: min(100%, 720px);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      overflow: hidden;
+    }
+
+    .top {
+      padding: 28px 28px 20px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(135deg, rgba(22, 98, 79, 0.10), rgba(255, 255, 255, 0.04)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.16));
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+      font-weight: 750;
+    }
+
+    .subtitle {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 1.02rem;
+    }
+
+    .body {
+      padding: 24px 20px 24px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(23, 34, 31, 0.09);
+      border-radius: 22px;
+      padding: 18px;
+    }
+
+    .label {
+      display: block;
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    .input-row {
+      display: grid;
+      gap: 14px;
+    }
+
+    input[type="tel"] {
+      width: 100%;
+      border: 1px solid rgba(23, 34, 31, 0.12);
+      border-radius: 18px;
+      padding: 24px 20px;
+      font-size: clamp(2.2rem, 7vw, 3.6rem);
+      font-weight: 700;
+      color: var(--ink);
+      background: #fffdf8;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    input[type="tel"]:focus {
+      border-color: rgba(22, 98, 79, 0.48);
+      box-shadow: 0 0 0 4px rgba(22, 98, 79, 0.12);
+    }
+
+    .result-box {
+      display: grid;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .result {
+      min-height: 88px;
+      padding: 18px;
+      border-radius: 18px;
+      background: #15211d;
+      color: #f7f6f1;
+      font-size: clamp(2rem, 7vw, 3.6rem);
+      line-height: 1.05;
+      letter-spacing: -0.045em;
+      font-weight: 750;
+      display: flex;
+      align-items: center;
+      word-break: break-word;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .status {
+      min-height: 1.4em;
+      color: var(--muted);
+      font-size: 0.97rem;
+    }
+
+    .status.good {
+      color: var(--good);
+      font-weight: 700;
+    }
+
+    .status.warn {
+      color: var(--warn);
+      font-weight: 700;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 18px;
+      padding: 18px 20px;
+      font-size: 1.08rem;
+      font-weight: 750;
+      cursor: pointer;
+      transition: transform 120ms ease, background 120ms ease, opacity 120ms ease;
+    }
+
+    button:active {
+      transform: scale(0.985);
+    }
+
+    .copy-btn {
+      background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+      color: white;
+      box-shadow: 0 10px 24px rgba(15, 71, 56, 0.25);
+    }
+
+    .copy-btn[disabled] {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .secondary {
+      background: rgba(23, 34, 31, 0.06);
+      color: var(--ink);
+    }
+
+    .settings {
+      display: grid;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 0.98rem;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .toggle input {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--accent);
+    }
+
+    .hint {
+      font-size: 0.95rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    @media (min-width: 720px) {
+      .body {
+        grid-template-columns: 1.15fr 0.85fr;
+        align-items: start;
+      }
+
+      .actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <main class="app">
+      <section class="top">
+        <h1>1.9 Clipboard Calculator</h1>
+        <p class="subtitle">Type a number, get the rounded result, and keep moving. Clipboard copy is attempted automatically and always available with one tap.</p>
+      </section>
+
+      <section class="body">
+        <section class="card">
+          <label class="label" for="sourceValue">Input</label>
+          <div class="input-row">
+            <input
+              id="sourceValue"
+              type="tel"
+              inputmode="numeric"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="Enter a whole number"
+              oninput="updateResult()"
+              onchange="updateResult()"
+              onkeyup="updateResult()"
+            >
+            <div class="result-box">
+              <span class="label">Result</span>
+              <div class="result" id="resultValue" role="button" tabindex="0" aria-label="Tap to copy result">0</div>
+              <div class="status" id="statusText">Ready for input.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="actions">
+            <button class="secondary" id="calcButton" type="button" onclick="updateResult()">Calculate</button>
+            <button class="copy-btn" id="copyButton" disabled>Copy Result</button>
+            <button class="secondary" id="clearButton" type="button">Clear</button>
+          </div>
+
+          <div class="settings" style="margin-top: 18px;">
+            <label class="toggle">
+              <input id="autoCopy" type="checkbox" checked>
+              <span>Try to copy automatically while typing</span>
+            </label>
+            <label class="toggle">
+              <input id="clearAfterCopy" type="checkbox">
+              <span>Clear the input after a successful copy</span>
+            </label>
+          </div>
+
+          <p class="hint" style="margin: 18px 0 0;">
+            On some iPad browsers, automatic clipboard access may be blocked unless you tap a button. If that happens, the calculator still updates instantly and you can tap either the large result or <strong>Copy Result</strong>.
+          </p>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    var MULTIPLIER = 1.9;
+
+    var input        = document.getElementById("sourceValue");
+    var resultValue  = document.getElementById("resultValue");
+    var statusText   = document.getElementById("statusText");
+    var copyButton   = document.getElementById("copyButton");
+    var clearButton  = document.getElementById("clearButton");
+    var autoCopy     = document.getElementById("autoCopy");
+    var clearAfterCopy = document.getElementById("clearAfterCopy");
+
+    var currentResult = "";
+    var copyTimer = null;
+
+    function setStatus(message, kind) {
+      statusText.textContent = message;
+      statusText.className = kind ? "status " + kind : "status";
+    }
+
+    // Separated from display — clipboard errors never affect the result box
+    function tryCopy(source) {
+      if (!currentResult) return;
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        setStatus("Clipboard not available. Result is shown above.", "warn");
+        return;
+      }
+      navigator.clipboard.writeText(currentResult).then(function () {
+        if (copyTimer) clearTimeout(copyTimer);
+        setStatus("Copied " + currentResult + (source === "auto" ? " automatically" : "") + ".", "good");
+        copyTimer = setTimeout(function () { setStatus("Ready."); }, 1400);
+        if (clearAfterCopy.checked) {
+          input.value = "";
+          currentResult = "";
+          resultValue.textContent = "0";
+          copyButton.disabled = true;
+          setStatus("Copied. Input cleared.", "good");
+        }
+      }).catch(function () {
+        setStatus("Clipboard blocked — tap Copy Result.", "warn");
+      });
+    }
+
+    function updateResult() {
+      // Strip non-digits for calculation only — never write back to input.value
+      // (reassigning input.value on iOS breaks subsequent input events)
+      var cleaned = input.value.replace(/[^0-9]/g, "");
+
+      if (!cleaned) {
+        currentResult = "";
+        resultValue.textContent = "0";
+        copyButton.disabled = true;
+        setStatus("Ready.");
+        return;
+      }
+
+      var n = parseInt(cleaned, 10);
+      currentResult = Math.round(n * MULTIPLIER).toString();
+      resultValue.textContent = currentResult;
+      copyButton.disabled = false;
+
+      if (autoCopy.checked) {
+        tryCopy("auto");
+      } else {
+        setStatus("Tap Copy Result to copy.");
+      }
+    }
+
+    window.updateResult = updateResult;
+    window.tryCopy = tryCopy;
+
+    // Belt-and-suspenders: oninput attr handles iPad virtual keyboard;
+    // these cover paste, external keyboards, and programmatic changes.
+    input.addEventListener("input",          updateResult);
+    input.addEventListener("change",         updateResult);
+    input.addEventListener("compositionend", updateResult);
+    input.addEventListener("paste", function () { requestAnimationFrame(updateResult); });
+
+    copyButton.addEventListener("click", function () {
+      if (!currentResult) { setStatus("Enter a number first.", "warn"); return; }
+      tryCopy("button");
+    });
+
+    resultValue.addEventListener("click", function () {
+      if (!currentResult) return;
+      tryCopy("button");
+    });
+
+    resultValue.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tryCopy("button"); }
+    });
+
+    clearButton.addEventListener("click", function () {
+      input.value = "";
+      currentResult = "";
+      resultValue.textContent = "0";
+      copyButton.disabled = true;
+      setStatus("Cleared.");
+      input.focus();
+    });
+
+    autoCopy.addEventListener("change", function () {
+      if (input.value) updateResult();
+    });
+
+    window.addEventListener("pageshow", function () {
+      setStatus("Ready.");
+      if (input.value) updateResult();
+    });
+  </script>
+</body>
+</html>
