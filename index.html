@@ -241,7 +241,7 @@
     <main class="app">
       <section class="top">
         <h1>1.9 Clipboard Calculator</h1>
-        <p class="subtitle">Type a number, get the rounded result, and keep moving. Clipboard copy is attempted automatically and always available with one tap.</p>
+        <p class="subtitle">Type a whole number, get the rounded result, and keep moving. Clipboard copy is attempted automatically and always available with one tap.</p>
       </section>
 
       <section class="body">
@@ -252,14 +252,13 @@
               id="sourceValue"
               type="tel"
               inputmode="numeric"
+              pattern="[0-9]*"
               autocomplete="off"
               autocorrect="off"
               autocapitalize="off"
               spellcheck="false"
-              placeholder="Enter a whole number"
-              oninput="updateResult()"
-              onchange="updateResult()"
-              onkeyup="updateResult()"
+              placeholder="0"
+              oninput="handleInput(event)"
             >
             <div class="result-box">
               <span class="label">Result</span>
@@ -271,7 +270,6 @@
 
         <section class="card">
           <div class="actions">
-            <button class="secondary" id="calcButton" type="button" onclick="updateResult()">Calculate</button>
             <button class="copy-btn" id="copyButton" disabled>Copy Result</button>
             <button class="secondary" id="clearButton" type="button">Clear</button>
           </div>
@@ -298,12 +296,12 @@
   <script>
     var MULTIPLIER = 1.9;
 
-    var input        = document.getElementById("sourceValue");
-    var resultValue  = document.getElementById("resultValue");
-    var statusText   = document.getElementById("statusText");
-    var copyButton   = document.getElementById("copyButton");
-    var clearButton  = document.getElementById("clearButton");
-    var autoCopy     = document.getElementById("autoCopy");
+    var input = document.getElementById("sourceValue");
+    var resultValue = document.getElementById("resultValue");
+    var statusText = document.getElementById("statusText");
+    var copyButton = document.getElementById("copyButton");
+    var clearButton = document.getElementById("clearButton");
+    var autoCopy = document.getElementById("autoCopy");
     var clearAfterCopy = document.getElementById("clearAfterCopy");
 
     var currentResult = "";
@@ -314,17 +312,29 @@
       statusText.className = kind ? "status " + kind : "status";
     }
 
-    // Separated from display — clipboard errors never affect the result box
+    function handleInput(e) {
+      var cleaned = e.target.value.replace(/[^0-9]/g, "");
+      e.target.value = cleaned;
+      updateResult();
+    }
+
     function tryCopy(source) {
       if (!currentResult) return;
+
       if (!navigator.clipboard || !navigator.clipboard.writeText) {
         setStatus("Clipboard not available. Result is shown above.", "warn");
         return;
       }
+
       navigator.clipboard.writeText(currentResult).then(function () {
         if (copyTimer) clearTimeout(copyTimer);
+
         setStatus("Copied " + currentResult + (source === "auto" ? " automatically" : "") + ".", "good");
-        copyTimer = setTimeout(function () { setStatus("Ready."); }, 1400);
+
+        copyTimer = setTimeout(function () {
+          setStatus("Ready.");
+        }, 1400);
+
         if (clearAfterCopy.checked) {
           input.value = "";
           currentResult = "";
@@ -338,9 +348,7 @@
     }
 
     function updateResult() {
-      // Strip non-digits for calculation only — never write back to input.value
-      // (reassigning input.value on iOS breaks subsequent input events)
-      var cleaned = input.value.replace(/[^0-9]/g, "");
+      var cleaned = input.value;
 
       if (!cleaned) {
         currentResult = "";
@@ -362,18 +370,11 @@
       }
     }
 
-    window.updateResult = updateResult;
-    window.tryCopy = tryCopy;
-
-    // Belt-and-suspenders: oninput attr handles iPad virtual keyboard;
-    // these cover paste, external keyboards, and programmatic changes.
-    input.addEventListener("input",          updateResult);
-    input.addEventListener("change",         updateResult);
-    input.addEventListener("compositionend", updateResult);
-    input.addEventListener("paste", function () { requestAnimationFrame(updateResult); });
-
     copyButton.addEventListener("click", function () {
-      if (!currentResult) { setStatus("Enter a number first.", "warn"); return; }
+      if (!currentResult) {
+        setStatus("Enter a number first.", "warn");
+        return;
+      }
       tryCopy("button");
     });
 
@@ -383,7 +384,10 @@
     });
 
     resultValue.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tryCopy("button"); }
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        tryCopy("button");
+      }
     });
 
     clearButton.addEventListener("click", function () {
@@ -402,6 +406,7 @@
     window.addEventListener("pageshow", function () {
       setStatus("Ready.");
       if (input.value) updateResult();
+      input.focus();
     });
   </script>
 </body>
