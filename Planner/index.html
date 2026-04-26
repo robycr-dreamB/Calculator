@@ -630,6 +630,10 @@
         <strong>Duplex mode:</strong> Margins alternate sides so the binding edge always faces the rings — print front-to-back on your printer's duplex setting.
       </div>
       <div class="form-group">
+        <label>Planner Owner Name</label>
+        <input type="text" id="print-owner" placeholder="e.g. Jane Smith" maxlength="60">
+      </div>
+      <div class="form-group">
         <label>Include Sections</label>
         <div class="print-section-checks">
           <label class="print-check-row"><input type="checkbox" id="inc-cover" checked> Cover page</label>
@@ -945,8 +949,7 @@ function renderMonth() {
       const cell = cells[w*7+d];
       const dk = dateKey(cell.date);
       const isToday = dk === today;
-      const isSel = dk === dateKey(curDate);
-      const cls = ['month-cell', cell.other?'other-month':'', isToday?'today':'', isSel?'selected':''].join(' ');
+      const cls = ['month-cell', cell.other?'other-month':'', isToday?'today':''].join(' ');
       const dayEvs = evByDate[dk] || [];
       let evHtml = '';
       const MAX = 3;
@@ -1253,8 +1256,9 @@ function executePrint() {
 
   const pages = [];
 
+  const ownerName = document.getElementById('print-owner').value.trim();
   if (incCover && (layout === 'both' || layout === 'month' || layout === 'week'))
-    pages.push(buildCoverPage(sy, sm, ey, em, incColor));
+    pages.push(buildCoverPage(sy, sm, ey, em, incColor, ownerName));
 
   // collect month range
   const monthList = [];
@@ -1330,7 +1334,7 @@ function buildHoles(type, side, isLandscape, pageHeight) {
 }
 
 // ── Cover Page ──
-function buildCoverPage(sy, sm, ey, em, color) {
+function buildCoverPage(sy, sm, ey, em, color, ownerName) {
   const colorSwatches = [
     '#4f46e5','#ef4444','#22c55e','#f59e0b','#a855f7',
     '#ec4899','#14b8a6','#3b82f6','#f97316','#84cc16','#e2e8f0','#0f172a',
@@ -1350,7 +1354,9 @@ function buildCoverPage(sy, sm, ey, em, color) {
       <div class="cover-decor">${decor}</div>
       <div class="cover-owner">
         <div class="cover-owner-label">This planner belongs to</div>
-        <div class="cover-owner-line"></div>
+        ${ownerName
+          ? `<div style="font-size:18pt;font-weight:700;font-family:-apple-system,sans-serif;color:#0f172a;margin-top:8px">${ownerName}</div>`
+          : `<div class="cover-owner-line"></div>`}
       </div>
       <div class="cover-tagline">Plan your work. Work your plan.</div>
     </div>`;
