@@ -216,6 +216,13 @@
   .print-btn:hover { border-color: var(--accent); color: var(--accent); }
   .clear-menu-item { padding: 8px 14px; cursor: pointer; color: var(--text2); transition: background .1s; }
   .clear-menu-item:hover { background: var(--surface3); color: var(--text); }
+  .hol-toggle { display:flex; align-items:center; gap:5px; cursor:pointer; }
+  .hol-toggle input { display:none; }
+  .hol-track { width:28px; height:16px; background:var(--border); border-radius:8px; position:relative; transition:background .2s; flex-shrink:0; }
+  .hol-toggle input:checked + .hol-track { background:var(--red); }
+  .hol-thumb { position:absolute; top:2px; left:2px; width:12px; height:12px; background:#fff; border-radius:50%; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+  .hol-toggle input:checked + .hol-track .hol-thumb { transform:translateX(12px); }
+  .hol-lbl { font-size:11px; font-weight:600; color:var(--text3); }
   .range-preset { padding: 5px 12px; border: 1px solid var(--border); border-radius: 16px; font-size: 12px; font-weight: 500; cursor: pointer; background: var(--surface); color: var(--text2); transition: all .15s; }
   .range-preset:hover, .range-preset.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
@@ -421,7 +428,14 @@
     </div>
     <div class="divider"></div>
     <div class="sidebar-section">
-      <div class="sidebar-label">Categories</div>
+      <div class="sidebar-label" style="display:flex;align-items:center;justify-content:space-between;padding-right:6px">
+        Categories
+        <label class="hol-toggle" title="Show/hide federal holidays">
+          <input type="checkbox" id="hol-chk" checked onchange="toggleHolidays(this.checked)">
+          <span class="hol-track"><span class="hol-thumb"></span></span>
+          <span class="hol-lbl">Holidays</span>
+        </label>
+      </div>
       <div id="cat-list"></div>
     </div>
     <div class="divider"></div>
@@ -694,12 +708,13 @@ const save = (key, val) => store.set(key, val);
 
 const COLORS = ['#4f46e5','#ef4444','#22c55e','#f59e0b','#a855f7','#ec4899','#14b8a6','#f97316','#3b82f6','#84cc16'];
 const CATEGORIES = [
-  { id:'work', name:'Work', color:'#4f46e5' },
-  { id:'personal', name:'Personal', color:'#22c55e' },
-  { id:'health', name:'Health', color:'#ef4444' },
-  { id:'social', name:'Social', color:'#ec4899' },
-  { id:'learning', name:'Learning', color:'#f59e0b' },
-  { id:'other', name:'Other', color:'#94a3b8' },
+  { id:'work',     name:'Work',      color:'#4f46e5' },
+  { id:'personal', name:'Personal',  color:'#22c55e' },
+  { id:'health',   name:'Health',    color:'#ef4444' },
+  { id:'social',   name:'Social',    color:'#ec4899' },
+  { id:'learning', name:'Learning',  color:'#f59e0b' },
+  { id:'other',    name:'Other',     color:'#94a3b8' },
+  { id:'holiday',  name:'Holidays',  color:'#ef4444' },
 ];
 const DOWS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const DOWS_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -712,6 +727,7 @@ let view = 'month';
 let editingEventId = null;
 let editingGoalId = null;
 let activeCategory = 'all';
+let showHolidaysGlobal = true;
 let miniMonth = { y: now.getFullYear(), m: now.getMonth() };
 
 const pad = n => String(n).padStart(2,'0');
@@ -792,13 +808,81 @@ function renderAll() {
   if (view === 'agenda') renderAgenda();
 }
 
+// ───────────────── US FEDERAL HOLIDAYS ─────────────────
+function nthWeekday(year, month, weekday, n) {
+  // nth occurrence (1-based) of weekday (0=Sun) in month (0-based)
+  const first = new Date(year, month, 1).getDay();
+  let day = 1 + ((weekday - first + 7) % 7) + (n - 1) * 7;
+  return new Date(year, month, day);
+}
+function lastWeekday(year, month, weekday) {
+  const last = new Date(year, month + 1, 0);
+  const diff = (last.getDay() - weekday + 7) % 7;
+  return new Date(year, month, last.getDate() - diff);
+}
+function observed(date) {
+  const dow = date.getDay();
+  if (dow === 6) return new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1); // Sat → Fri
+  if (dow === 0) return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1); // Sun → Mon
+  return date;
+}
+function getFederalHolidays(year) {
+  const fixed = (m, d, name) => {
+    const obs = observed(new Date(year, m, d));
+    return { name, actual: new Date(year, m, d), obs };
+  };
+  return [
+    fixed(0,  1,  "New Year's Day"),
+    { name: 'MLK Jr. Day',         obs: nthWeekday(year, 0, 1, 3) },
+    { name: "Presidents' Day",     obs: nthWeekday(year, 1, 1, 3) },
+    { name: 'Memorial Day',        obs: lastWeekday(year, 4, 1)   },
+    fixed(5,  19, 'Juneteenth'),
+    fixed(6,  4,  'Independence Day'),
+    { name: 'Labor Day',           obs: nthWeekday(year, 8, 1, 1) },
+    { name: 'Columbus Day',        obs: nthWeekday(year, 9, 1, 2) },
+    fixed(10, 11, 'Veterans Day'),
+    { name: 'Thanksgiving Day',    obs: nthWeekday(year, 10, 4, 4)},
+    fixed(11, 25, 'Christmas Day'),
+  ];
+}
+function buildHolidayEvents() {
+  const yearSet = new Set();
+  // cover a rolling 5-year window so any view has holidays
+  for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 3; y++) yearSet.add(y);
+  const out = [];
+  yearSet.forEach(y => {
+    getFederalHolidays(y).forEach(h => {
+      const d = h.obs;
+      out.push({
+        id: `holiday-${y}-${h.name}`,
+        title: h.name,
+        date: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
+        start: '', end: '',
+        cat: 'holiday', color: '#ef4444',
+        location: '', notes: 'US Federal Holiday',
+        holiday: true,
+      });
+    });
+  });
+  return out;
+}
+const holidayEvents = buildHolidayEvents();
+
+function toggleHolidays(on) {
+  showHolidaysGlobal = on;
+  renderAll();
+}
+
 function filteredEvents() {
   const q = document.getElementById('search-box').value.toLowerCase();
-  return events.filter(e => {
-    if (activeCategory !== 'all' && e.cat !== activeCategory) return false;
+  const userEvents = events.filter(e => {
+    if (activeCategory !== 'all' && activeCategory !== 'holiday' && e.cat !== activeCategory) return false;
     if (q && !e.title.toLowerCase().includes(q) && !e.notes.toLowerCase().includes(q)) return false;
     return true;
   });
+  const showHols = showHolidaysGlobal && (activeCategory === 'all' || activeCategory === 'holiday');
+  const hols = showHols ? holidayEvents.filter(h => !q || h.title.toLowerCase().includes(q)) : [];
+  return [...hols, ...userEvents];
 }
 
 function renderTopLabel() {
