@@ -232,29 +232,42 @@
 
   /* ── Print Styles ── */
   @media print {
-    @page {
-      size: letter portrait;
-      margin: 0;
-    }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     body { background: #fff; }
     #app, .modal-overlay, #print-modal { display: none !important; }
     #print-area { display: block !important; }
 
-    .pp { page-break-after: always; break-after: page; }
+    .pp { page-break-after: always; break-after: page; page-break-inside: avoid; break-inside: avoid; }
     .pp:last-child { page-break-after: avoid; break-after: avoid; }
+
+    /* prevent any inner element from splitting across pages */
+    .pp-week-row, .pp-day-cell, .pp-bottom-strip,
+    .pp-goal-row, .pp-goal-print-row, .pp-habit-row,
+    .pp-tracker-table tr, .pp-week-day-col,
+    .pp-month-header, .pp-week-header, .pp-tracker-header,
+    .pp-cover, .pp-two-col-page {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
   }
 
   /* ── Print Page Layouts ── */
   #print-area { display: none; }
 
+  /* portrait page — default */
   .pp {
     width: 8.5in;
-    min-height: 11in;
+    height: 11in;
     background: #fff;
     font-family: 'Georgia', 'Times New Roman', serif;
     position: relative;
     overflow: hidden;
+    box-sizing: border-box;
+  }
+  /* landscape page */
+  .pp.landscape {
+    width: 11in;
+    height: 8.5in;
   }
 
   /* binder margin strip */
@@ -266,6 +279,7 @@
     border-right: 1px dashed #d1d5db;
     background: #fafafa;
   }
+  .pp.strip-right::before { left: auto; right: 0; border-right: none; border-left: 1px dashed #d1d5db; }
 
   .pp-inner {
     margin-left: 0.85in;
@@ -275,6 +289,10 @@
     height: calc(11in - 0.8in);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+  }
+  .pp.landscape .pp-inner {
+    height: calc(8.5in - 0.8in);
   }
 
   /* punch holes */
@@ -582,6 +600,13 @@
       </div>
       <div class="form-row">
         <div class="form-group">
+          <label>Orientation</label>
+          <select id="print-orientation">
+            <option value="portrait">Portrait (8.5 × 11)</option>
+            <option value="landscape">Landscape (11 × 8.5)</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label>Hole Punch</label>
           <select id="print-holes">
             <option value="3">3-Hole (standard)</option>
@@ -590,6 +615,8 @@
             <option value="none">None</option>
           </select>
         </div>
+      </div>
+      <div class="form-row">
         <div class="form-group">
           <label>Print Side</label>
           <select id="print-duplex-sel" onchange="updateDuplexNote()">
@@ -623,30 +650,43 @@
 <div id="print-area"></div>
 
 <script>
-// UUID polyfill for older Safari/iPadOS
+// UUID — polyfill for older Safari/iPadOS
 const uuid = () => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return uuid();
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = Math.random() * 16 | 0;
     return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
   });
 };
 
+// Safe storage — falls back to in-memory when localStorage is blocked (iOS file://)
+const memStore = {};
+const store = {
+  get(key, fallback) {
+    try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback; }
+    catch { return key in memStore ? memStore[key] : fallback; }
+  },
+  set(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); }
+    catch { memStore[key] = val; }
+  }
+};
+
 // ───────────────── DATA ─────────────────
 const STORAGE = {
-  events: 'planner_events',
-  habits: 'planner_habits',
+  events:   'planner_events',
+  habits:   'planner_habits',
   habitLog: 'planner_habitlog',
-  goals: 'planner_goals',
-  notes: 'planner_notes',
+  goals:    'planner_goals',
+  notes:    'planner_notes',
 };
-let events = JSON.parse(localStorage.getItem(STORAGE.events) || '[]');
-let habits = JSON.parse(localStorage.getItem(STORAGE.habits) || '[]');
-let habitLog = JSON.parse(localStorage.getItem(STORAGE.habitLog) || '{}');
-let goals = JSON.parse(localStorage.getItem(STORAGE.goals) || '[]');
-let notesMap = JSON.parse(localStorage.getItem(STORAGE.notes) || '{}');
+let events   = store.get(STORAGE.events,   []);
+let habits   = store.get(STORAGE.habits,   []);
+let habitLog = store.get(STORAGE.habitLog, {});
+let goals    = store.get(STORAGE.goals,    []);
+let notesMap = store.get(STORAGE.notes,    {});
 
-const save = (key, val) => localStorage.setItem(key, JSON.stringify(val));
+const save = (key, val) => store.set(key, val);
 
 const COLORS = ['#4f46e5','#ef4444','#22c55e','#f59e0b','#a855f7','#ec4899','#14b8a6','#f97316','#3b82f6','#84cc16'];
 const CATEGORIES = [
@@ -1204,8 +1244,9 @@ function executePrint() {
   const incGoals  = document.getElementById('inc-goals').checked;
   const incHabits = document.getElementById('inc-habits').checked;
   const incColor  = document.getElementById('inc-color').checked;
-  const holeType  = document.getElementById('print-holes').value;
-  const duplex    = document.getElementById('print-duplex-sel').value === 'duplex';
+  const orientation = document.getElementById('print-orientation').value;
+  const holeType    = document.getElementById('print-holes').value;
+  const duplex      = document.getElementById('print-duplex-sel').value === 'duplex';
 
   const [sy, sm] = startVal.split('-').map(Number);
   const [ey, em] = endVal.split('-').map(Number);
@@ -1239,25 +1280,31 @@ function executePrint() {
     pages.push(buildGoalsNotesPage(incColor));
   }
 
+  // inject @page size rule dynamically so portrait/landscape is respected
+  const pageStyle = document.getElementById('print-page-style') || (() => {
+    const s = document.createElement('style'); s.id = 'print-page-style'; document.head.appendChild(s); return s;
+  })();
+  pageStyle.textContent = `@media print { @page { size: letter ${orientation}; margin: 0; } }`;
+
   // apply duplex-aware margins and hole marks to every page
-  const finalPages = applyBinderLayout(pages, holeType, duplex);
+  const finalPages = applyBinderLayout(pages, holeType, duplex, orientation);
 
   document.getElementById('print-area').innerHTML = finalPages.join('');
   setTimeout(() => { window.print(); }, 80);
 }
 
 // ── Binder layout: alternate margins for duplex, punch holes ──
-function applyBinderLayout(pages, holeType, duplex) {
+function applyBinderLayout(pages, holeType, duplex, orientation) {
+  const isLandscape = orientation === 'landscape';
   return pages.map((html, i) => {
     const pageNum = i + 1;
     const isOdd = pageNum % 2 === 1;
-    // For duplex: odd=recto (front), gutter left; even=verso (back), gutter right
-    const gutterLeft  = duplex ? (isOdd  ? '0.85in' : '0.4in')  : '0.85in';
-    const gutterRight = duplex ? (isOdd  ? '0.4in'  : '0.85in') : '0.4in';
-    const stripSide   = duplex ? (isOdd  ? 'left'   : 'right')  : 'left';
-    const holes = buildHoles(holeType, stripSide, duplex ? (isOdd ? 'left' : 'right') : 'left');
-    // inject per-page inline overrides via a wrapper
-    return `<div class="pp" style="--gL:${gutterLeft};--gR:${gutterRight};--strip:${stripSide}">
+    const gutterLeft  = duplex ? (isOdd ? '0.85in' : '0.4in')  : '0.85in';
+    const gutterRight = duplex ? (isOdd ? '0.4in'  : '0.85in') : '0.4in';
+    const stripSide   = duplex ? (isOdd ? 'left'   : 'right')  : 'left';
+    const holes = buildHoles(holeType, stripSide, isLandscape, isLandscape ? 8.5 : 11);
+    const cls = ['pp', isLandscape ? 'landscape' : '', stripSide === 'right' ? 'strip-right' : ''].filter(Boolean).join(' ');
+    return `<div class="${cls}">
       ${holes}
       <div class="pp-inner" style="margin-left:${gutterLeft};margin-right:${gutterRight}">
         ${html}
@@ -1267,14 +1314,16 @@ function applyBinderLayout(pages, holeType, duplex) {
   });
 }
 
-function buildHoles(type, side, align) {
+function buildHoles(type, side, isLandscape, pageHeight) {
   if (type === 'none') return '';
-  const x = align === 'left' ? '0.28in' : 'calc(8.5in - 0.47in)';
+  const x = side === 'left' ? '0.28in' : `calc(${isLandscape ? '11in' : '8.5in'} - 0.47in)`;
+  // scale hole positions proportionally to page height
+  const h = pageHeight || 11;
   const positions = {
-    '2': ['2.75in', '8.25in'],
-    '3': ['1.25in', '5.5in',  '9.75in'],
-    '4': ['1in',    '3.67in', '6.33in', '9in'],
-  }[type] || ['1.25in','5.5in','9.75in'];
+    '2': [h * 0.25 + 'in', h * 0.75 + 'in'],
+    '3': ['1.25in', (h / 2) + 'in', (h - 0.25) + 'in'],
+    '4': ['1in', (h * 0.33).toFixed(2) + 'in', (h * 0.66).toFixed(2) + 'in', (h - 0.5) + 'in'],
+  }[type] || ['1.25in', (h / 2) + 'in', (h - 0.25) + 'in'];
   return positions.map(top =>
     `<div class="pp-hole" style="top:${top};left:${x};transform:translateX(-50%)"></div>`
   ).join('');
