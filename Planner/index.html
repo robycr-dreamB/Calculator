@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planner</title>
+<style>
+  :root {
+    --accent: #4f46e5;
+    --accent-light: #e0e7ff;
+    --accent-dark: #3730a3;
+    --surface: #ffffff;
+    --surface2: #f8fafc;
+    --surface3: #f1f5f9;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --text2: #475569;
+    --text3: #94a3b8;
+    --red: #ef4444;
+    --green: #22c55e;
+    --yellow: #f59e0b;
+    --purple: #a855f7;
+    --pink: #ec4899;
+    --teal: #14b8a6;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.04);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--surface3); color: var(--text); min-height: 100vh; min-height: -webkit-fill-available; }
+
+  /* ── Layout ── */
+  #app { display: grid; grid-template-columns: 260px 1fr; grid-template-rows: 60px 1fr; height: 100vh; height: -webkit-fill-available; }
+  #topbar { grid-column: 1/-1; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); z-index: 10; }
+  #sidebar { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px 0; display: flex; flex-direction: column; gap: 8px; }
+  #main { overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+
+  /* ── Topbar ── */
+  .logo { font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; margin-right: 8px; }
+  .nav-views { display: flex; gap: 4px; margin-left: auto; }
+  .nav-btn { padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; background: transparent; color: var(--text2); transition: all .15s; }
+  .nav-btn:hover { background: var(--surface3); color: var(--text); }
+  .nav-btn.active { background: var(--accent); color: #fff; }
+  .nav-arrow { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; background: var(--surface); color: var(--text2); font-size: 14px; transition: all .15s; }
+  .nav-arrow:hover { border-color: var(--accent); color: var(--accent); }
+  #period-label { font-size: 15px; font-weight: 600; min-width: 180px; text-align: center; }
+  .today-btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; background: var(--surface); color: var(--text2); transition: all .15s; }
+  .today-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .add-btn { padding: 8px 18px; background: var(--accent); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: background .15s; }
+  .add-btn:hover { background: var(--accent-dark); }
+
+  /* ── Sidebar ── */
+  .sidebar-section { padding: 0 12px; }
+  .sidebar-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--text3); padding: 4px 8px 8px; }
+  .mini-cal { padding: 0 8px 12px; }
+  .mini-cal-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 2px 8px; font-size: 13px; font-weight: 600; }
+  .mini-cal-arrow { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 14px; padding: 2px 6px; border-radius: 4px; }
+  .mini-cal-arrow:hover { color: var(--accent); }
+  .mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .mini-dow { font-size: 10px; font-weight: 600; color: var(--text3); text-align: center; padding: 2px 0; }
+  .mini-day { font-size: 12px; text-align: center; padding: 4px 2px; border-radius: 50%; cursor: pointer; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; margin: 0 auto; transition: all .12s; color: var(--text2); }
+  .mini-day:hover { background: var(--accent-light); color: var(--accent); }
+  .mini-day.today { background: var(--accent); color: #fff; font-weight: 700; }
+  .mini-day.selected { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+  .mini-day.other-month { color: var(--text3); }
+  .mini-day.has-event::after { content: ''; display: block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); margin: -2px auto 0; }
+
+  .cat-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); transition: all .12s; }
+  .cat-item:hover { background: var(--surface3); color: var(--text); }
+  .cat-item.active { background: var(--accent-light); color: var(--accent); }
+  .cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .cat-count { margin-left: auto; font-size: 11px; background: var(--surface3); padding: 1px 7px; border-radius: 10px; color: var(--text3); }
+
+  .habit-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; font-size: 13px; color: var(--text2); }
+  .habit-check { width: 16px; height: 16px; border: 2px solid var(--border); border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .12s; }
+  .habit-check.done { background: var(--green); border-color: var(--green); color: #fff; font-size: 10px; }
+  .habit-streak { margin-left: auto; font-size: 11px; color: var(--yellow); }
+
+  /* ── Month View ── */
+  .month-grid { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow); }
+  .month-dow-row { display: grid; grid-template-columns: repeat(7, 1fr); background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .month-dow { font-size: 12px; font-weight: 600; text-align: center; padding: 10px 0; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; }
+  .month-weeks { display: grid; grid-template-rows: repeat(6, 1fr); }
+  .month-week { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--border); min-height: 110px; }
+  .month-week:last-child { border-bottom: none; }
+  .month-cell { border-right: 1px solid var(--border); padding: 6px; display: flex; flex-direction: column; gap: 3px; min-height: 110px; cursor: pointer; transition: background .12s; }
+  .month-cell:last-child { border-right: none; }
+  .month-cell:hover { background: var(--surface3); }
+  .month-cell.today { background: #faf5ff; }
+  .month-cell.other-month { background: var(--surface2); }
+  .month-cell.other-month .day-num { color: var(--text3); }
+  .day-num { font-size: 13px; font-weight: 600; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 50%; flex-shrink: 0; }
+  .month-cell.today .day-num { background: var(--accent); color: #fff; }
+  .month-cell.selected { background: var(--accent-light); }
+  .event-chip { font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: opacity .12s; }
+  .event-chip:hover { opacity: .8; }
+  .more-events { font-size: 11px; color: var(--text3); padding: 1px 4px; cursor: pointer; }
+  .more-events:hover { color: var(--accent); }
+
+  /* ── Week View ── */
+  .week-grid { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+  .week-header { display: grid; grid-template-columns: 60px repeat(7, 1fr); border-bottom: 2px solid var(--border); background: var(--surface2); }
+  .week-time-gutter { border-right: 1px solid var(--border); }
+  .week-day-head { padding: 10px 8px; text-align: center; border-right: 1px solid var(--border); }
+  .week-day-head:last-child { border-right: none; }
+  .week-dow { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; }
+  .week-day-num { font-size: 22px; font-weight: 700; color: var(--text2); line-height: 1.2; }
+  .week-day-head.today .week-day-num { color: var(--accent); }
+  .week-body { display: grid; grid-template-columns: 60px repeat(7, 1fr); overflow-y: auto; max-height: 560px; }
+  .week-times { display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+  .week-hour-label { height: 48px; font-size: 10px; color: var(--text3); text-align: right; padding: 4px 8px 0 0; flex-shrink: 0; }
+  .week-col { border-right: 1px solid var(--border); position: relative; }
+  .week-col:last-child { border-right: none; }
+  .week-hour-line { height: 48px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+  .week-hour-line:hover { background: var(--accent-light); }
+  .week-event { position: absolute; left: 2px; right: 2px; border-radius: 5px; padding: 2px 6px; font-size: 11px; font-weight: 500; overflow: hidden; cursor: pointer; z-index: 2; line-height: 1.3; }
+  .week-now-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--red); z-index: 5; }
+  .week-now-line::before { content: ''; width: 8px; height: 8px; background: var(--red); border-radius: 50%; position: absolute; left: -4px; top: -3px; }
+
+  /* ── Day View ── */
+  .day-grid { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow); }
+  .day-header { padding: 16px 24px; border-bottom: 2px solid var(--border); background: var(--surface2); display: flex; align-items: baseline; gap: 12px; }
+  .day-title { font-size: 26px; font-weight: 700; }
+  .day-subtitle { font-size: 14px; color: var(--text3); }
+  .day-body { display: grid; grid-template-columns: 60px 1fr; overflow-y: auto; max-height: 580px; }
+  .day-times { display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+  .day-col { position: relative; }
+  .day-hour-line { height: 60px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+  .day-hour-line:hover { background: var(--accent-light); }
+  .day-hour-label { height: 60px; font-size: 11px; color: var(--text3); text-align: right; padding: 6px 10px 0 0; }
+  .day-event { position: absolute; left: 6px; right: 6px; border-radius: 7px; padding: 4px 10px; font-size: 12px; font-weight: 600; overflow: hidden; cursor: pointer; z-index: 2; }
+  .day-now-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--red); z-index: 5; }
+  .day-now-line::before { content: ''; width: 8px; height: 8px; background: var(--red); border-radius: 50%; position: absolute; left: -4px; top: -3px; }
+
+  /* ── Agenda View ── */
+  .agenda-section { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow); }
+  .agenda-date-row { background: var(--surface2); padding: 10px 20px; font-size: 13px; font-weight: 700; color: var(--text2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .agenda-date-row.today-row { color: var(--accent); }
+  .agenda-date-badge { background: var(--accent); color: #fff; padding: 2px 10px; border-radius: 10px; font-size: 11px; }
+  .agenda-event-row { padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; cursor: pointer; transition: background .1s; }
+  .agenda-event-row:last-child { border-bottom: none; }
+  .agenda-event-row:hover { background: var(--surface3); }
+  .agenda-time { font-size: 12px; color: var(--text3); width: 80px; flex-shrink: 0; font-weight: 500; }
+  .agenda-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .agenda-title { font-size: 14px; font-weight: 500; }
+  .agenda-meta { font-size: 12px; color: var(--text3); margin-top: 1px; }
+  .agenda-empty { padding: 16px 20px; font-size: 13px; color: var(--text3); font-style: italic; }
+
+  /* ── Goals Panel ── */
+  .goals-panel { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 20px; box-shadow: var(--shadow); }
+  .panel-title { font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
+  .panel-add { font-size: 20px; color: var(--accent); cursor: pointer; line-height: 1; border: none; background: none; }
+  .goal-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .goal-item:last-child { border-bottom: none; }
+  .goal-progress { flex: 1; }
+  .goal-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .goal-pct { font-size: 12px; color: var(--text3); }
+  .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+  .goal-edit { font-size: 12px; color: var(--text3); cursor: pointer; padding: 2px 6px; border-radius: 4px; border: none; background: none; }
+  .goal-edit:hover { color: var(--accent); background: var(--accent-light); }
+
+  /* ── Notes Panel ── */
+  .notes-panel { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 20px; box-shadow: var(--shadow); }
+  .note-textarea { width: 100%; min-height: 100px; border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 13px; font-family: inherit; resize: vertical; color: var(--text); background: var(--surface3); outline: none; transition: border-color .15s; }
+  .note-textarea:focus { border-color: var(--accent); background: var(--surface); }
+  .note-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tag { font-size: 11px; padding: 3px 10px; border-radius: 10px; background: var(--accent-light); color: var(--accent); font-weight: 500; cursor: pointer; border: none; }
+
+  /* ── Modal ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(2px); }
+  .modal { background: var(--surface); border-radius: 16px; width: 100%; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,.2); animation: modalIn .2s ease; }
+  @keyframes modalIn { from { opacity: 0; transform: scale(.96) translateY(8px); } to { opacity: 1; transform: none; } }
+  .modal-header { padding: 20px 24px 0; display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 17px; font-weight: 700; }
+  .modal-close { background: var(--surface3); border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 16px; color: var(--text2); display: flex; align-items: center; justify-content: center; transition: all .12s; }
+  .modal-close:hover { background: var(--border); }
+  .modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .form-row { display: flex; gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  label { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; }
+  input, select, textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; color: var(--text); outline: none; background: var(--surface); transition: border-color .15s; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+  textarea { resize: vertical; min-height: 70px; }
+  .color-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+  .color-swatch { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform .12s; }
+  .color-swatch:hover { transform: scale(1.15); }
+  .color-swatch.selected { border-color: var(--text); }
+  .modal-footer { padding: 0 24px 20px; display: flex; gap: 10px; justify-content: flex-end; }
+  .btn { padding: 9px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--surface3); }
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid var(--red); margin-right: auto; }
+  .btn-danger:hover { background: #fef2f2; }
+
+  /* ── Stats strip ── */
+  .stats-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .stat-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px 18px; box-shadow: var(--shadow); }
+  .stat-label { font-size: 12px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; }
+  .stat-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+  /* ── Misc ── */
+  .hidden { display: none !important; }
+  .view-panel { display: none; flex-direction: column; gap: 20px; }
+  .view-panel.active { display: flex; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } .stats-strip { grid-template-columns: repeat(2, 1fr); } }
+  .divider { height: 1px; background: var(--border); margin: 4px 12px; }
+  input[type="color"] { padding: 2px; height: 34px; }
+  .search-box { flex: 1; max-width: 260px; padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--surface3); outline: none; }
+  .search-box:focus { border-color: var(--accent); background: var(--surface); }
+  .print-btn { padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; background: var(--surface); color: var(--text2); transition: all .15s; }
+  .print-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .clear-menu-item { padding: 8px 14px; cursor: pointer; color: var(--text2); transition: background .1s; }
+  .clear-menu-item:hover { background: var(--surface3); color: var(--text); }
+  .range-preset { padding: 5px 12px; border: 1px solid var(--border); border-radius: 16px; font-size: 12px; font-weight: 500; cursor: pointer; background: var(--surface); color: var(--text2); transition: all .15s; }
+  .range-preset:hover, .range-preset.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── Print Modal ── */
+  .print-option-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .print-option { border: 2px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: all .15s; }
+  .print-option:hover { border-color: var(--accent); background: var(--accent-light); }
+  .print-option.selected { border-color: var(--accent); background: var(--accent-light); }
+  .print-option-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .print-option-desc { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .print-section-checks { display: flex; flex-direction: column; gap: 8px; }
+  .print-check-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text2); cursor: pointer; }
+  .print-check-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
+  /* ── Print Styles ── */
+  @media print {
+    @page {
+      size: letter portrait;
+      margin: 0;
+    }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { background: #fff; }
+    #app, .modal-overlay, #print-modal { display: none !important; }
+    #print-area { display: block !important; }
+
+    .pp { page-break-after: always; break-after: page; }
+    .pp:last-child { page-break-after: avoid; break-after: avoid; }
+  }
+
+  /* ── Print Page Layouts ── */
+  #print-area { display: none; }
+
+  .pp {
+    width: 8.5in;
+    min-height: 11in;
+    background: #fff;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* binder margin strip */
+  .pp::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 0.75in;
+    border-right: 1px dashed #d1d5db;
+    background: #fafafa;
+  }
+
+  .pp-inner {
+    margin-left: 0.85in;
+    margin-right: 0.4in;
+    margin-top: 0.45in;
+    margin-bottom: 0.35in;
+    height: calc(11in - 0.8in);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* punch holes */
+  .pp-hole { position: absolute; left: 0.28in; width: 0.19in; height: 0.19in; border-radius: 50%; background: #fff; border: 1px solid #d1d5db; }
+
+  /* ── Cover Page ── */
+  .pp-cover { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 0; }
+  .pp-cover .cover-accent { width: 2in; height: 6px; background: #4f46e5; border-radius: 3px; margin-bottom: 0.3in; }
+  .pp-cover .cover-title { font-size: 52pt; font-weight: 900; color: #0f172a; letter-spacing: -2px; line-height: 1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-cover .cover-year { font-size: 28pt; color: #4f46e5; font-weight: 300; margin-top: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-cover .cover-owner { margin-top: 0.5in; border-top: 1px solid #e2e8f0; padding-top: 16px; width: 3in; }
+  .pp-cover .cover-owner-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; }
+  .pp-cover .cover-owner-line { margin-top: 10px; border-bottom: 1px solid #0f172a; width: 100%; height: 24px; }
+  .pp-cover .cover-tagline { margin-top: 0.4in; font-size: 10pt; color: #94a3b8; font-style: italic; }
+  .cover-decor { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 0.35in; width: 3in; }
+  .cover-decor-cell { height: 20px; border-radius: 3px; }
+
+  /* ── Month Page ── */
+  .pp-month-header { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 3px solid #0f172a; padding-bottom: 8px; margin-bottom: 14px; }
+  .pp-month-name { font-size: 28pt; font-weight: 900; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: -1px; }
+  .pp-month-year { font-size: 14pt; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-month-grid { flex: 1; display: flex; flex-direction: column; }
+  .pp-dow-row { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: 4px; }
+  .pp-dow-cell { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #94a3b8; text-align: center; padding: 0 0 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-week-row { display: grid; grid-template-columns: repeat(7,1fr); flex: 1; border-top: 1px solid #e2e8f0; }
+  .pp-day-cell { border-right: 1px solid #e2e8f0; padding: 5px 6px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+  .pp-day-cell:last-child { border-right: none; }
+  .pp-day-num { font-size: 11pt; font-weight: 700; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; flex-shrink: 0; }
+  .pp-day-num.today-num { background: #4f46e5; color: #fff; }
+  .pp-day-cell.other-month .pp-day-num { color: #d1d5db; }
+  .pp-ev { font-size: 7pt; padding: 1px 4px; border-radius: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-notes-col { width: 1.4in; border-left: 1px solid #e2e8f0; padding: 8px 0 0 10px; flex-shrink: 0; }
+  .pp-notes-col-title { font-size: 7pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 6px; }
+  .pp-notes-line { border-bottom: 1px solid #e2e8f0; margin-bottom: 8px; height: 16px; }
+
+  /* ── Month goals/habits strip ── */
+  .pp-bottom-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+  .pp-strip-title { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-goal-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+  .pp-goal-bar-bg { flex: 1; height: 5px; background: #e2e8f0; border-radius: 3px; }
+  .pp-goal-bar-fill { height: 100%; border-radius: 3px; }
+  .pp-goal-label { font-size: 7.5pt; color: #475569; white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-habit-track { display: flex; gap: 3px; flex-wrap: wrap; }
+  .pp-habit-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .pp-habit-box { width: 10px; height: 10px; border: 1px solid #d1d5db; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── Week Page ── */
+  .pp-week-header { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 3px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px; }
+  .pp-week-label { font-size: 20pt; font-weight: 900; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-week-range { font-size: 10pt; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-week-body { flex: 1; display: grid; grid-template-columns: 0.38in repeat(7,1fr); border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden; }
+  .pp-week-time-col { border-right: 1px solid #e2e8f0; }
+  .pp-week-day-col { border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+  .pp-week-day-col:last-child { border-right: none; }
+  .pp-week-day-head { border-bottom: 2px solid #e2e8f0; padding: 4px 4px; text-align: center; background: #f8fafc; }
+  .pp-week-day-name { font-size: 7pt; font-weight: 700; text-transform: uppercase; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-week-day-date { font-size: 11pt; font-weight: 900; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-week-day-head.wk-today { background: #4f46e5; }
+  .pp-week-day-head.wk-today .pp-week-day-name { color: rgba(255,255,255,.7); }
+  .pp-week-day-head.wk-today .pp-week-day-date { color: #fff; }
+  .pp-week-rows { flex: 1; display: flex; flex-direction: column; }
+  .pp-week-hour { flex: 1; border-bottom: 1px solid #f1f5f9; }
+  .pp-time-head { border-bottom: 2px solid #e2e8f0; height: 31px; background: #f8fafc; }
+  .pp-time-label { flex: 1; border-bottom: 1px solid #f1f5f9; font-size: 6.5pt; color: #94a3b8; text-align: right; padding-right: 3px; padding-top: 2px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-week-ev { font-size: 6.5pt; padding: 1px 3px; margin: 1px 2px; border-radius: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+  /* ── Habit Tracker Page ── */
+  .pp-tracker-header { border-bottom: 3px solid #0f172a; padding-bottom: 8px; margin-bottom: 16px; }
+  .pp-tracker-title { font-size: 24pt; font-weight: 900; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-tracker-table { width: 100%; border-collapse: collapse; }
+  .pp-tracker-table th { font-size: 7.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; border-bottom: 2px solid #e2e8f0; padding: 4px 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-tracker-table th.habit-name-col { text-align: left; width: 1.8in; }
+  .pp-tracker-table td { border-bottom: 1px solid #f1f5f9; padding: 5px 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-tracker-table td.habit-name { font-size: 9pt; font-weight: 600; color: #0f172a; }
+  .pp-tracker-table td.habit-box-cell { text-align: center; }
+  .pp-tracker-box { width: 14px; height: 14px; border: 1.5px solid #d1d5db; border-radius: 3px; margin: 0 auto; }
+
+  /* ── Goals & Notes Page ── */
+  .pp-two-col-page { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .pp-col-title { font-size: 14pt; font-weight: 900; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 12px; }
+  .pp-lined { flex: 1; display: flex; flex-direction: column; gap: 0; }
+  .pp-line { border-bottom: 1px solid #e2e8f0; height: 22px; }
+  .pp-goal-print-row { display: flex; flex-direction: column; margin-bottom: 12px; }
+  .pp-goal-print-name { font-size: 10pt; font-weight: 700; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .pp-goal-print-bar { height: 8px; background: #e2e8f0; border-radius: 4px; margin: 4px 0 2px; overflow: hidden; }
+  .pp-goal-print-fill { height: 100%; border-radius: 4px; }
+  .pp-goal-print-pct { font-size: 8pt; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- TOPBAR -->
+  <header id="topbar">
+    <span class="logo">Planner</span>
+    <button class="nav-arrow" id="prev-btn">&#8249;</button>
+    <span id="period-label"></span>
+    <button class="nav-arrow" id="next-btn">&#8250;</button>
+    <button class="today-btn" onclick="goToday()">Today</button>
+    <div class="nav-views">
+      <button class="nav-btn active" data-view="month" onclick="switchView('month',this)">Month</button>
+      <button class="nav-btn" data-view="week" onclick="switchView('week',this)">Week</button>
+      <button class="nav-btn" data-view="day" onclick="switchView('day',this)">Day</button>
+      <button class="nav-btn" data-view="agenda" onclick="switchView('agenda',this)">Agenda</button>
+    </div>
+    <input class="search-box" id="search-box" placeholder="Search events…" oninput="renderAll()">
+    <button class="print-btn" onclick="openPrintModal()">🖨 Print</button>
+    <div style="position:relative">
+      <button class="print-btn" onclick="toggleClearMenu()" id="clear-btn">⚙️</button>
+      <div id="clear-menu" class="hidden" style="position:absolute;top:38px;right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);width:200px;z-index:50;padding:6px 0;font-size:13px">
+        <div style="padding:6px 14px 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Clear data</div>
+        <div class="clear-menu-item" onclick="clearData('events')">Clear all events</div>
+        <div class="clear-menu-item" onclick="clearData('habits')">Clear habits</div>
+        <div class="clear-menu-item" onclick="clearData('goals')">Clear goals</div>
+        <div class="clear-menu-item" onclick="clearData('notes')">Clear notes</div>
+        <div style="height:1px;background:var(--border);margin:4px 0"></div>
+        <div class="clear-menu-item" style="color:var(--red)" onclick="clearData('all')">Clear everything</div>
+      </div>
+    </div>
+    <button class="add-btn" onclick="openNewEvent()">&#43; New Event</button>
+  </header>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-section">
+      <div class="mini-cal" id="mini-cal"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Categories</div>
+      <div id="cat-list"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label" style="display:flex;align-items:center;justify-content:space-between;padding-right:4px">
+        Habits <button class="panel-add" onclick="addHabit()" style="font-size:16px">+</button>
+      </div>
+      <div id="habit-list"></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main id="main">
+
+    <!-- MONTH VIEW -->
+    <div class="view-panel active" id="view-month">
+      <div class="stats-strip" id="stats-strip"></div>
+      <div class="month-grid">
+        <div class="month-dow-row" id="month-dow"></div>
+        <div class="month-weeks" id="month-weeks"></div>
+      </div>
+    </div>
+
+    <!-- WEEK VIEW -->
+    <div class="view-panel" id="view-week">
+      <div class="week-grid" id="week-grid"></div>
+    </div>
+
+    <!-- DAY VIEW -->
+    <div class="view-panel" id="view-day">
+      <div class="day-grid" id="day-grid"></div>
+    </div>
+
+    <!-- AGENDA VIEW -->
+    <div class="view-panel" id="view-agenda">
+      <div class="two-col">
+        <div id="agenda-events"></div>
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div class="goals-panel">
+            <div class="panel-title">Goals <button class="panel-add" onclick="addGoal()">+</button></div>
+            <div id="goal-list"></div>
+          </div>
+          <div class="notes-panel">
+            <div class="panel-title">Daily Notes</div>
+            <textarea class="note-textarea" id="daily-notes" placeholder="Capture thoughts, ideas, or reminders…" oninput="saveNotes()"></textarea>
+            <div class="note-tags" id="note-tags"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- EVENT MODAL -->
+<div class="modal-overlay hidden" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">New Event</span>
+      <button class="modal-close" onclick="closeModal()">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Title</label>
+        <input type="text" id="ev-title" placeholder="Event title" maxlength="80">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="ev-date">
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="ev-cat"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start time</label>
+          <input type="time" id="ev-start">
+        </div>
+        <div class="form-group">
+          <label>End time</label>
+          <input type="time" id="ev-end">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Location</label>
+        <input type="text" id="ev-location" placeholder="Add location…" maxlength="100">
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="ev-notes" placeholder="Add notes…"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Color</label>
+        <div class="color-picker" id="ev-colors"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger hidden" id="delete-btn" onclick="deleteEvent()">Delete</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEvent()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- GOAL MODAL -->
+<div class="modal-overlay hidden" id="goal-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Goal</span>
+      <button class="modal-close" onclick="document.getElementById('goal-modal').classList.add('hidden')">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Goal Name</label><input type="text" id="g-name" placeholder="e.g. Read 12 books"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Current</label><input type="number" id="g-cur" min="0" value="0"></div>
+        <div class="form-group"><label>Target</label><input type="number" id="g-target" min="1" value="10"></div>
+      </div>
+      <div class="form-group">
+        <label>Color</label>
+        <div class="color-picker" id="g-colors"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger hidden" id="g-delete-btn" onclick="deleteGoal()">Delete</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('goal-modal').classList.add('hidden')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGoal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT MODAL -->
+<div class="modal-overlay hidden" id="print-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title">Print Planner</span>
+      <button class="modal-close" onclick="document.getElementById('print-modal').classList.add('hidden')">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Layout</label>
+        <div class="print-option-grid" id="print-layout-opts">
+          <div class="print-option selected" data-layout="month" onclick="selectPrintLayout(this)">
+            <div class="print-option-title">📅 Monthly</div>
+            <div class="print-option-desc">One full calendar page per month</div>
+          </div>
+          <div class="print-option" data-layout="week" onclick="selectPrintLayout(this)">
+            <div class="print-option-title">📆 Weekly</div>
+            <div class="print-option-desc">Time-blocked weekly spreads</div>
+          </div>
+          <div class="print-option" data-layout="both" onclick="selectPrintLayout(this)">
+            <div class="print-option-title">📋 Full Binder</div>
+            <div class="print-option-desc">Cover + monthly + weekly + tracker</div>
+          </div>
+          <div class="print-option" data-layout="tracker" onclick="selectPrintLayout(this)">
+            <div class="print-option-title">✅ Trackers Only</div>
+            <div class="print-option-desc">Habit tracker + goals + notes pages</div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Date Range</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px" id="range-presets">
+          <button class="range-preset" onclick="setRange('month')">This Month</button>
+          <button class="range-preset" onclick="setRange('quarter')">This Quarter</button>
+          <button class="range-preset" onclick="setRange('year')">This Year</button>
+          <button class="range-preset" onclick="setRange('nextyear')">Next Year</button>
+          <button class="range-preset" onclick="setRange('custom')">Custom…</button>
+        </div>
+        <div id="custom-range" style="display:flex;gap:12px">
+          <div class="form-group" style="flex:1"><label>From</label><input type="month" id="print-start"></div>
+          <div class="form-group" style="flex:1"><label>To</label><input type="month" id="print-end"></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Hole Punch</label>
+          <select id="print-holes">
+            <option value="3">3-Hole (standard)</option>
+            <option value="2">2-Hole (top)</option>
+            <option value="4">4-Hole (heavy duty)</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Print Side</label>
+          <select id="print-duplex-sel" onchange="updateDuplexNote()">
+            <option value="single">Single-sided</option>
+            <option value="duplex">Double-sided (duplex)</option>
+          </select>
+        </div>
+      </div>
+      <input type="hidden" id="print-duplex" value="false">
+      <div id="duplex-note" class="hidden" style="background:var(--accent-light);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--accent)">
+        <strong>Duplex mode:</strong> Margins alternate sides so the binding edge always faces the rings — print front-to-back on your printer's duplex setting.
+      </div>
+      <div class="form-group">
+        <label>Include Sections</label>
+        <div class="print-section-checks">
+          <label class="print-check-row"><input type="checkbox" id="inc-cover" checked> Cover page</label>
+          <label class="print-check-row"><input type="checkbox" id="inc-goals" checked> Goals &amp; notes pages</label>
+          <label class="print-check-row"><input type="checkbox" id="inc-habits" checked> Habit tracker pages</label>
+          <label class="print-check-row"><input type="checkbox" id="inc-color" checked> Print in color</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('print-modal').classList.add('hidden')">Cancel</button>
+      <button class="btn btn-primary" onclick="executePrint()">🖨 Print Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT AREA (hidden on screen, shown when printing) -->
+<div id="print-area"></div>
+
+<script>
+// UUID polyfill for older Safari/iPadOS
+const uuid = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return uuid();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+};
+
+// ───────────────── DATA ─────────────────
+const STORAGE = {
+  events: 'planner_events',
+  habits: 'planner_habits',
+  habitLog: 'planner_habitlog',
+  goals: 'planner_goals',
+  notes: 'planner_notes',
+};
+let events = JSON.parse(localStorage.getItem(STORAGE.events) || '[]');
+let habits = JSON.parse(localStorage.getItem(STORAGE.habits) || '[]');
+let habitLog = JSON.parse(localStorage.getItem(STORAGE.habitLog) || '{}');
+let goals = JSON.parse(localStorage.getItem(STORAGE.goals) || '[]');
+let notesMap = JSON.parse(localStorage.getItem(STORAGE.notes) || '{}');
+
+const save = (key, val) => localStorage.setItem(key, JSON.stringify(val));
+
+const COLORS = ['#4f46e5','#ef4444','#22c55e','#f59e0b','#a855f7','#ec4899','#14b8a6','#f97316','#3b82f6','#84cc16'];
+const CATEGORIES = [
+  { id:'work', name:'Work', color:'#4f46e5' },
+  { id:'personal', name:'Personal', color:'#22c55e' },
+  { id:'health', name:'Health', color:'#ef4444' },
+  { id:'social', name:'Social', color:'#ec4899' },
+  { id:'learning', name:'Learning', color:'#f59e0b' },
+  { id:'other', name:'Other', color:'#94a3b8' },
+];
+const DOWS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DOWS_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// ───────────────── STATE ─────────────────
+const now = new Date();
+let curDate = new Date(now); // selected / anchor date
+let view = 'month';
+let editingEventId = null;
+let editingGoalId = null;
+let activeCategory = 'all';
+let miniMonth = { y: now.getFullYear(), m: now.getMonth() };
+
+const pad = n => String(n).padStart(2,'0');
+const dateKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today = dateKey(now);
+const parseDate = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d); };
+
+// ───────────────── SEED DEMO DATA ─────────────────
+if (!events.length) {
+  const d = new Date(now);
+  const mk = (offset, title, start, end, cat, color) => {
+    const dt = new Date(d); dt.setDate(dt.getDate() + offset);
+    return { id: uuid(), title, date: dateKey(dt), start, end, cat, color, location:'', notes:'' };
+  };
+  events = [
+    mk(0,'Team standup','09:00','09:30','work','#4f46e5'),
+    mk(0,'Lunch with Alex','12:00','13:00','social','#ec4899'),
+    mk(1,'Project review','10:00','11:30','work','#4f46e5'),
+    mk(1,'Gym','17:00','18:30','health','#ef4444'),
+    mk(2,'Doctor appointment','14:00','15:00','health','#ef4444'),
+    mk(3,'Book club','18:00','20:00','learning','#f59e0b'),
+    mk(4,'1:1 with manager','11:00','11:30','work','#4f46e5'),
+    mk(5,'Dinner – Smiths','19:00','21:00','social','#ec4899'),
+    mk(7,'Sprint planning','09:00','10:30','work','#4f46e5'),
+    mk(-1,'Coffee with Sarah','08:30','09:00','social','#ec4899'),
+  ];
+  save(STORAGE.events, events);
+}
+if (!habits.length) {
+  habits = [
+    { id: uuid(), name: 'Morning exercise', color: '#ef4444', streak: 0 },
+    { id: uuid(), name: 'Read 30 min', color: '#f59e0b', streak: 0 },
+    { id: uuid(), name: 'Meditate', color: '#a855f7', streak: 0 },
+    { id: uuid(), name: 'Drink 8 glasses', color: '#14b8a6', streak: 0 },
+  ];
+  save(STORAGE.habits, habits);
+}
+if (!goals.length) {
+  goals = [
+    { id: uuid(), name: 'Read 12 books', cur: 3, target: 12, color: '#f59e0b' },
+    { id: uuid(), name: 'Run 200 km', cur: 68, target: 200, color: '#ef4444' },
+    { id: uuid(), name: 'Complete course', cur: 7, target: 10, color: '#4f46e5' },
+  ];
+  save(STORAGE.goals, goals);
+}
+
+// ───────────────── NAVIGATION ─────────────────
+function switchView(v, el) {
+  view = v;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  renderAll();
+}
+function goToday() { curDate = new Date(now); miniMonth = { y: now.getFullYear(), m: now.getMonth() }; renderAll(); }
+
+document.getElementById('prev-btn').onclick = () => navigate(-1);
+document.getElementById('next-btn').onclick = () => navigate(1);
+function navigate(dir) {
+  if (view === 'month') { curDate.setMonth(curDate.getMonth() + dir); }
+  else if (view === 'week') { curDate.setDate(curDate.getDate() + dir*7); }
+  else if (view === 'day') { curDate.setDate(curDate.getDate() + dir); }
+  else if (view === 'agenda') { curDate.setDate(curDate.getDate() + dir*30); }
+  renderAll();
+}
+
+// ───────────────── RENDER ALL ─────────────────
+function renderAll() {
+  renderTopLabel();
+  renderMiniCal();
+  renderCategories();
+  renderHabits();
+  renderStats();
+  if (view === 'month') renderMonth();
+  if (view === 'week') renderWeek();
+  if (view === 'day') renderDay();
+  if (view === 'agenda') renderAgenda();
+}
+
+function filteredEvents() {
+  const q = document.getElementById('search-box').value.toLowerCase();
+  return events.filter(e => {
+    if (activeCategory !== 'all' && e.cat !== activeCategory) return false;
+    if (q && !e.title.toLowerCase().includes(q) && !e.notes.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function renderTopLabel() {
+  let lbl = '';
+  const y = curDate.getFullYear(), m = curDate.getMonth();
+  if (view === 'month') lbl = `${MONTHS[m]} ${y}`;
+  else if (view === 'week') {
+    const ws = weekStart(curDate);
+    const we = new Date(ws); we.setDate(we.getDate()+6);
+    lbl = ws.getMonth() === we.getMonth()
+      ? `${MONTHS[ws.getMonth()]} ${ws.getDate()} – ${we.getDate()}, ${y}`
+      : `${MONTHS[ws.getMonth()]} ${ws.getDate()} – ${MONTHS[we.getMonth()]} ${we.getDate()}, ${y}`;
+  } else if (view === 'day') lbl = `${DOWS_LONG[curDate.getDay()]}, ${MONTHS[m]} ${curDate.getDate()}, ${y}`;
+  else lbl = `${MONTHS[m]} ${y} — Agenda`;
+  document.getElementById('period-label').textContent = lbl;
+}
+
+// ───────────────── MINI CALENDAR ─────────────────
+function renderMiniCal() {
+  const { y, m } = miniMonth;
+  const first = new Date(y, m, 1).getDay();
+  const days = new Date(y, m+1, 0).getDate();
+  const eventDates = new Set(filteredEvents().map(e => e.date));
+  let html = `<div class="mini-cal-header">
+    <button class="mini-cal-arrow" onclick="miniNav(-1)">&#8249;</button>
+    <span>${MONTHS[m].slice(0,3)} ${y}</span>
+    <button class="mini-cal-arrow" onclick="miniNav(1)">&#8250;</button>
+  </div><div class="mini-grid">`;
+  DOWS_SHORT.forEach(d => html += `<div class="mini-dow">${d[0]}</div>`);
+  const prevDays = new Date(y, m, 0).getDate();
+  for (let i = first - 1; i >= 0; i--)
+    html += `<div class="mini-day other-month">${prevDays - i}</div>`;
+  for (let d = 1; d <= days; d++) {
+    const dk = `${y}-${pad(m+1)}-${pad(d)}`;
+    const cls = [
+      'mini-day',
+      dk === today ? 'today' : '',
+      dk === dateKey(curDate) ? 'selected' : '',
+      eventDates.has(dk) ? 'has-event' : '',
+    ].join(' ');
+    html += `<div class="${cls}" onclick="miniSelect(${y},${m},${d})">${d}</div>`;
+  }
+  const remaining = 42 - first - days;
+  for (let d = 1; d <= remaining; d++)
+    html += `<div class="mini-day other-month">${d}</div>`;
+  html += '</div>';
+  document.getElementById('mini-cal').innerHTML = html;
+}
+function miniNav(dir) { miniMonth.m += dir; if (miniMonth.m < 0) { miniMonth.m = 11; miniMonth.y--; } else if (miniMonth.m > 11) { miniMonth.m = 0; miniMonth.y++; } renderMiniCal(); }
+function miniSelect(y, m, d) { curDate = new Date(y, m, d); if (view === 'month') { /* stay */ } else switchView('day', document.querySelector('[data-view="day"]')); renderAll(); }
+
+// ───────────────── CATEGORIES ─────────────────
+function renderCategories() {
+  const fe = filteredEvents();
+  const counts = {};
+  fe.forEach(e => { counts[e.cat] = (counts[e.cat]||0)+1; });
+  const total = fe.length;
+  let html = `<div class="cat-item ${activeCategory==='all'?'active':''}" onclick="setCat('all')">
+    <div class="cat-dot" style="background:#4f46e5"></div><span>All Events</span>
+    <span class="cat-count">${total}</span></div>`;
+  CATEGORIES.forEach(c => {
+    html += `<div class="cat-item ${activeCategory===c.id?'active':''}" onclick="setCat('${c.id}')">
+      <div class="cat-dot" style="background:${c.color}"></div><span>${c.name}</span>
+      <span class="cat-count">${counts[c.id]||0}</span></div>`;
+  });
+  document.getElementById('cat-list').innerHTML = html;
+}
+function setCat(id) { activeCategory = id; renderAll(); }
+
+// ───────────────── HABITS ─────────────────
+function renderHabits() {
+  const tk = today;
+  let html = '';
+  habits.forEach(h => {
+    const done = !!(habitLog[tk] && habitLog[tk][h.id]);
+    const streak = calcStreak(h.id);
+    html += `<div class="habit-item">
+      <div class="habit-check ${done?'done':''}" onclick="toggleHabit('${h.id}')">${done?'✓':''}</div>
+      <span style="font-size:13px;color:${done?'var(--text3)':'var(--text)'};text-decoration:${done?'line-through':'none'}">${h.name}</span>
+      <span class="habit-streak">${streak>0?'🔥'+streak:''}</span>
+    </div>`;
+  });
+  document.getElementById('habit-list').innerHTML = html || '<div style="padding:8px;font-size:12px;color:var(--text3)">No habits yet</div>';
+}
+function toggleHabit(id) {
+  if (!habitLog[today]) habitLog[today] = {};
+  habitLog[today][id] = !habitLog[today][id];
+  save(STORAGE.habitLog, habitLog);
+  renderHabits();
+  renderStats();
+}
+function calcStreak(hid) {
+  let streak = 0, d = new Date(now);
+  while (true) {
+    const k = dateKey(d);
+    if (habitLog[k] && habitLog[k][hid]) { streak++; d.setDate(d.getDate()-1); }
+    else break;
+  }
+  return streak;
+}
+function addHabit() {
+  const name = prompt('Habit name:');
+  if (!name) return;
+  habits.push({ id: uuid(), name, color: COLORS[habits.length % COLORS.length], streak: 0 });
+  save(STORAGE.habits, habits);
+  renderHabits();
+}
+
+// ───────────────── STATS ─────────────────
+function renderStats() {
+  const fe = filteredEvents();
+  const thisMonth = fe.filter(e => e.date.startsWith(`${curDate.getFullYear()}-${pad(curDate.getMonth()+1)}`));
+  const todayEvents = fe.filter(e => e.date === today);
+  const habitsToday = habits.filter(h => habitLog[today]?.[h.id]).length;
+  const goalPct = goals.length ? Math.round(goals.reduce((s,g) => s + (g.cur/g.target)*100, 0) / goals.length) : 0;
+  document.getElementById('stats-strip').innerHTML = `
+    <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value">${thisMonth.length}</div><div class="stat-sub">events scheduled</div></div>
+    <div class="stat-card"><div class="stat-label">Today</div><div class="stat-value">${todayEvents.length}</div><div class="stat-sub">events remaining</div></div>
+    <div class="stat-card"><div class="stat-label">Habits</div><div class="stat-value">${habitsToday}/${habits.length}</div><div class="stat-sub">completed today</div></div>
+    <div class="stat-card"><div class="stat-label">Goals</div><div class="stat-value">${goalPct}%</div><div class="stat-sub">avg progress</div></div>`;
+}
+
+// ───────────────── MONTH VIEW ─────────────────
+function renderMonth() {
+  const y = curDate.getFullYear(), m = curDate.getMonth();
+  const first = new Date(y, m, 1).getDay();
+  const days = new Date(y, m+1, 0).getDate();
+  const fe = filteredEvents();
+  const evByDate = {};
+  fe.forEach(e => { if (!evByDate[e.date]) evByDate[e.date] = []; evByDate[e.date].push(e); });
+  // Sort events by start time
+  Object.values(evByDate).forEach(arr => arr.sort((a,b) => (a.start||'').localeCompare(b.start||'')));
+
+  const dow = document.getElementById('month-dow');
+  dow.innerHTML = DOWS_SHORT.map(d=>`<div class="month-dow">${d}</div>`).join('');
+
+  const weeksEl = document.getElementById('month-weeks');
+  let cells = [];
+  const prevDays = new Date(y, m, 0).getDate();
+  for (let i = first - 1; i >= 0; i--) cells.push({ date: new Date(y, m-1, prevDays-i), other: true });
+  for (let d = 1; d <= days; d++) cells.push({ date: new Date(y, m, d), other: false });
+  while (cells.length < 42) { const last = cells[cells.length-1].date; const nd = new Date(last); nd.setDate(nd.getDate()+1); cells.push({ date: nd, other: true }); }
+
+  let html = '';
+  for (let w = 0; w < 6; w++) {
+    html += '<div class="month-week">';
+    for (let d = 0; d < 7; d++) {
+      const cell = cells[w*7+d];
+      const dk = dateKey(cell.date);
+      const isToday = dk === today;
+      const isSel = dk === dateKey(curDate);
+      const cls = ['month-cell', cell.other?'other-month':'', isToday?'today':'', isSel?'selected':''].join(' ');
+      const dayEvs = evByDate[dk] || [];
+      let evHtml = '';
+      const MAX = 3;
+      dayEvs.slice(0, MAX).forEach(e => {
+        evHtml += `<div class="event-chip" style="background:${e.color}22;color:${e.color}" title="${e.title}" onclick="event.stopPropagation();openEditEvent('${e.id}')">${e.start?e.start+' ':''}<strong>${e.title}</strong></div>`;
+      });
+      if (dayEvs.length > MAX) evHtml += `<div class="more-events" onclick="event.stopPropagation();miniSelect(${cell.date.getFullYear()},${cell.date.getMonth()},${cell.date.getDate()})">+${dayEvs.length-MAX} more</div>`;
+      html += `<div class="${cls}" onclick="openNewEventOn('${dk}')"><div class="day-num">${cell.date.getDate()}</div>${evHtml}</div>`;
+    }
+    html += '</div>';
+  }
+  weeksEl.innerHTML = html;
+}
+
+// ───────────────── WEEK VIEW ─────────────────
+function weekStart(d) { const s = new Date(d); s.setDate(s.getDate() - s.getDay()); s.setHours(0,0,0,0); return s; }
+function renderWeek() {
+  const ws = weekStart(curDate);
+  const fe = filteredEvents();
+  let header = '<div class="week-time-gutter"></div>';
+  let cols = '';
+  for (let d = 0; d < 7; d++) {
+    const dt = new Date(ws); dt.setDate(dt.getDate()+d);
+    const dk = dateKey(dt);
+    const isToday = dk === today;
+    header += `<div class="week-day-head ${isToday?'today':''}">
+      <div class="week-dow">${DOWS_SHORT[dt.getDay()]}</div>
+      <div class="week-day-num">${dt.getDate()}</div>
+    </div>`;
+    const dayEvs = fe.filter(e => e.date === dk && e.start);
+    let evHtml = '';
+    dayEvs.forEach(e => {
+      const top = timeToMin(e.start) * (48/60);
+      const h = Math.max((timeToMin(e.end||e.start) - timeToMin(e.start)) * (48/60), 22);
+      evHtml += `<div class="week-event" style="top:${top}px;height:${h}px;background:${e.color}22;color:${e.color};border-left:3px solid ${e.color}" onclick="openEditEvent('${e.id}')">${e.start} ${e.title}</div>`;
+    });
+    // now line
+    if (isToday) {
+      const nowMin = now.getHours()*60+now.getMinutes();
+      evHtml += `<div class="week-now-line" style="top:${nowMin*(48/60)}px"></div>`;
+    }
+    let lines = '';
+    for (let h = 0; h < 24; h++) lines += `<div class="week-hour-line" onclick="openNewEventAt('${dk}','${pad(h)}:00')"></div>`;
+    cols += `<div class="week-col" style="position:relative">${lines}${evHtml}</div>`;
+  }
+  let times = '';
+  for (let h = 0; h < 24; h++) times += `<div class="week-hour-label">${h===0?'':h<12?h+'am':h===12?'12pm':(h-12)+'pm'}</div>`;
+  document.getElementById('week-grid').innerHTML = `
+    <div class="week-header">${header}</div>
+    <div class="week-body">
+      <div class="week-times">${times}</div>
+      ${cols}
+    </div>`;
+}
+
+// ───────────────── DAY VIEW ─────────────────
+function renderDay() {
+  const dk = dateKey(curDate);
+  const isToday = dk === today;
+  const fe = filteredEvents().filter(e => e.date === dk);
+  let times = '', events_html = '';
+  for (let h = 0; h < 24; h++) {
+    times += `<div class="day-hour-label">${h===0?'':h<12?h+'am':h===12?'12pm':(h-12)+'pm'}</div>`;
+    events_html += `<div class="day-hour-line" onclick="openNewEventAt('${dk}','${pad(h)}:00')"></div>`;
+  }
+  let evHtml = '';
+  fe.filter(e=>e.start).forEach(e => {
+    const top = timeToMin(e.start) * (60/60);
+    const h = Math.max((timeToMin(e.end||e.start) - timeToMin(e.start)) * (60/60), 28);
+    evHtml += `<div class="day-event" style="top:${top}px;height:${h}px;background:${e.color}22;color:${e.color};border-left:4px solid ${e.color}" onclick="openEditEvent('${e.id}')"><strong>${e.title}</strong>${e.start?`<div style="font-size:11px;opacity:.8">${e.start}${e.end?' – '+e.end:''}</div>`:''}</div>`;
+  });
+  if (isToday) { const m = now.getHours()*60+now.getMinutes(); evHtml += `<div class="day-now-line" style="top:${m}px"></div>`; }
+  const allDay = fe.filter(e=>!e.start);
+  let allDayHtml = '';
+  if (allDay.length) allDayHtml = `<div style="padding:8px 24px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">${allDay.map(e=>`<div class="event-chip" style="background:${e.color}22;color:${e.color}" onclick="openEditEvent('${e.id}')">${e.title}</div>`).join('')}</div>`;
+  document.getElementById('day-grid').innerHTML = `
+    <div class="day-header">
+      <span class="day-title">${DOWS_LONG[curDate.getDay()]}, ${MONTHS[curDate.getMonth()]} ${curDate.getDate()}</span>
+      <span class="day-subtitle">${fe.length} event${fe.length!==1?'s':''}</span>
+    </div>
+    ${allDayHtml}
+    <div class="day-body">
+      <div class="day-times">${times}</div>
+      <div class="day-col" style="position:relative">${events_html}${evHtml}</div>
+    </div>`;
+}
+
+// ───────────────── AGENDA VIEW ─────────────────
+function renderAgenda() {
+  const fe = filteredEvents().sort((a,b)=>a.date.localeCompare(b.date)||(a.start||'').localeCompare(b.start||''));
+  const byDate = {};
+  fe.forEach(e => { if (!byDate[e.date]) byDate[e.date] = []; byDate[e.date].push(e); });
+  const dates = Object.keys(byDate).sort();
+  let html = '';
+  if (!dates.length) {
+    html = `<div class="agenda-section"><div class="agenda-empty">No events found.</div></div>`;
+  } else {
+    dates.slice(0, 60).forEach(dk => {
+      const d = parseDate(dk);
+      const isToday2 = dk === today;
+      html += `<div class="agenda-section" style="margin-bottom:12px">
+        <div class="agenda-date-row ${isToday2?'today-row':''}">
+          ${DOWS_LONG[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}
+          ${isToday2?'<span class="agenda-date-badge">Today</span>':''}
+        </div>`;
+      byDate[dk].forEach(e => {
+        html += `<div class="agenda-event-row" onclick="openEditEvent('${e.id}')">
+          <span class="agenda-time">${e.start||'All day'}${e.end?' – '+e.end:''}</span>
+          <div class="agenda-dot" style="background:${e.color}"></div>
+          <div><div class="agenda-title">${e.title}</div>${e.location?`<div class="agenda-meta">📍 ${e.location}</div>`:''}</div>
+        </div>`;
+      });
+      html += '</div>';
+    });
+  }
+  document.getElementById('agenda-events').innerHTML = html;
+  renderGoals();
+  const noteKey = dateKey(curDate);
+  document.getElementById('daily-notes').value = notesMap[noteKey] || '';
+}
+
+// ───────────────── GOALS ─────────────────
+function renderGoals() {
+  let html = '';
+  goals.forEach(g => {
+    const pct = Math.min(100, Math.round((g.cur/g.target)*100));
+    html += `<div class="goal-item">
+      <div class="goal-progress">
+        <div class="goal-name"><span>${g.name}</span><span class="goal-pct">${g.cur}/${g.target}</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${g.color}"></div></div>
+      </div>
+      <button class="goal-edit" onclick="openEditGoal('${g.id}')">✏️</button>
+    </div>`;
+  });
+  document.getElementById('goal-list').innerHTML = html || '<div style="font-size:13px;color:var(--text3)">No goals yet</div>';
+}
+function addGoal() { editingGoalId = null; document.getElementById('g-name').value=''; document.getElementById('g-cur').value='0'; document.getElementById('g-target').value='10'; document.getElementById('g-delete-btn').classList.add('hidden'); renderColorPicker('g-colors', COLORS[0]); document.getElementById('goal-modal').classList.remove('hidden'); }
+function openEditGoal(id) { const g = goals.find(x=>x.id===id); if(!g) return; editingGoalId=id; document.getElementById('g-name').value=g.name; document.getElementById('g-cur').value=g.cur; document.getElementById('g-target').value=g.target; document.getElementById('g-delete-btn').classList.remove('hidden'); renderColorPicker('g-colors', g.color); document.getElementById('goal-modal').classList.remove('hidden'); }
+function saveGoal() { const name=document.getElementById('g-name').value.trim(); if(!name) return; const color=document.querySelector('#g-colors .selected')?.dataset.color||COLORS[0]; const cur=+document.getElementById('g-cur').value; const target=+document.getElementById('g-target').value||1; if(editingGoalId) { const g=goals.find(x=>x.id===editingGoalId); Object.assign(g,{name,cur,target,color}); } else { goals.push({id:uuid(),name,cur,target,color}); } save(STORAGE.goals,goals); document.getElementById('goal-modal').classList.add('hidden'); renderGoals(); renderStats(); }
+function deleteGoal() { if(!editingGoalId) return; goals=goals.filter(g=>g.id!==editingGoalId); save(STORAGE.goals,goals); document.getElementById('goal-modal').classList.add('hidden'); renderGoals(); renderStats(); }
+
+// ───────────────── NOTES ─────────────────
+function saveNotes() { const k=dateKey(curDate); notesMap[k]=document.getElementById('daily-notes').value; save(STORAGE.notes, notesMap); }
+
+// ───────────────── EVENT MODAL ─────────────────
+function openNewEvent() { openEventModal(null, today, '09:00'); }
+function openNewEventOn(dk) { openEventModal(null, dk, '09:00'); }
+function openNewEventAt(dk, time) { openEventModal(null, dk, time); }
+function openEditEvent(id) { openEventModal(id); }
+
+function openEventModal(id, defaultDate, defaultStart) {
+  editingEventId = id;
+  const ev = id ? events.find(e=>e.id===id) : null;
+  document.getElementById('modal-title').textContent = ev ? 'Edit Event' : 'New Event';
+  document.getElementById('ev-title').value = ev?.title || '';
+  document.getElementById('ev-date').value = ev?.date || defaultDate || today;
+  document.getElementById('ev-start').value = ev?.start || defaultStart || '';
+  document.getElementById('ev-end').value = ev?.end || '';
+  document.getElementById('ev-location').value = ev?.location || '';
+  document.getElementById('ev-notes').value = ev?.notes || '';
+  const catSel = document.getElementById('ev-cat');
+  catSel.innerHTML = CATEGORIES.map(c=>`<option value="${c.id}" ${(ev?.cat||'work')===c.id?'selected':''}>${c.name}</option>`).join('');
+  renderColorPicker('ev-colors', ev?.color || COLORS[0]);
+  document.getElementById('delete-btn').classList.toggle('hidden', !ev);
+  document.getElementById('modal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('ev-title').focus(),50);
+}
+
+function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+function saveEvent() {
+  const title = document.getElementById('ev-title').value.trim();
+  if (!title) { document.getElementById('ev-title').focus(); return; }
+  const color = document.querySelector('#ev-colors .selected')?.dataset.color || COLORS[0];
+  const ev = {
+    id: editingEventId || uuid(),
+    title,
+    date: document.getElementById('ev-date').value,
+    start: document.getElementById('ev-start').value,
+    end: document.getElementById('ev-end').value,
+    cat: document.getElementById('ev-cat').value,
+    location: document.getElementById('ev-location').value,
+    notes: document.getElementById('ev-notes').value,
+    color,
+  };
+  if (editingEventId) { const i = events.findIndex(e=>e.id===editingEventId); events[i]=ev; }
+  else events.push(ev);
+  save(STORAGE.events, events);
+  closeModal();
+  renderAll();
+}
+function deleteEvent() {
+  if (!editingEventId) return;
+  events = events.filter(e => e.id !== editingEventId);
+  save(STORAGE.events, events);
+  closeModal();
+  renderAll();
+}
+
+// ───────────────── COLOR PICKER ─────────────────
+function renderColorPicker(containerId, selected) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = COLORS.map(c=>`<div class="color-swatch ${c===selected?'selected':''}" style="background:${c}" data-color="${c}" onclick="selectColor('${containerId}','${c}')"></div>`).join('');
+}
+function selectColor(containerId, color) {
+  document.querySelectorAll(`#${containerId} .color-swatch`).forEach(s => s.classList.toggle('selected', s.dataset.color===color));
+}
+
+// ───────────────── UTILS ─────────────────
+function timeToMin(t) { if (!t) return 0; const [h,m] = t.split(':').map(Number); return h*60+m; }
+
+// keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'Escape') { closeModal(); document.getElementById('goal-modal').classList.add('hidden'); document.getElementById('print-modal').classList.add('hidden'); }
+  if (e.key === 'n') openNewEvent();
+  if (e.key === 't') goToday();
+  if (e.key === 'm') switchView('month', document.querySelector('[data-view="month"]'));
+  if (e.key === 'w') switchView('week', document.querySelector('[data-view="week"]'));
+  if (e.key === 'd') switchView('day', document.querySelector('[data-view="day"]'));
+  if (e.key === 'a') switchView('agenda', document.querySelector('[data-view="agenda"]'));
+  if (e.key === 'ArrowLeft') navigate(-1);
+  if (e.key === 'ArrowRight') navigate(1);
+  if (e.key === 'p' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); openPrintModal(); }
+});
+
+// close modal on overlay click
+document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) closeModal(); });
+document.getElementById('print-modal').addEventListener('click', e => { if (e.target === document.getElementById('print-modal')) document.getElementById('print-modal').classList.add('hidden'); });
+
+// ───────────────── PRINT SYSTEM ─────────────────
+let printLayout = 'month';
+
+function openPrintModal() {
+  document.getElementById('custom-range').style.display = 'none';
+  setRange('year');
+  document.getElementById('print-modal').classList.remove('hidden');
+}
+
+function toggleClearMenu() {
+  const m = document.getElementById('clear-menu');
+  m.classList.toggle('hidden');
+}
+document.addEventListener('click', e => {
+  if (!document.getElementById('clear-btn').contains(e.target))
+    document.getElementById('clear-menu').classList.add('hidden');
+});
+
+function clearData(what) {
+  const labels = { events:'all events', habits:'habits', goals:'goals', notes:'notes', all:'everything' };
+  if (!confirm(`Clear ${labels[what]}? This cannot be undone.`)) return;
+  if (what === 'events' || what === 'all') { events = []; save(STORAGE.events, events); }
+  if (what === 'habits' || what === 'all') { habits = []; habitLog = {}; save(STORAGE.habits, habits); save(STORAGE.habitLog, habitLog); }
+  if (what === 'goals'  || what === 'all') { goals = [];  save(STORAGE.goals, goals); }
+  if (what === 'notes'  || what === 'all') { notesMap = {}; save(STORAGE.notes, notesMap); }
+  document.getElementById('clear-menu').classList.add('hidden');
+  renderAll();
+}
+
+function updateDuplexNote() {
+  const duplex = document.getElementById('print-duplex-sel').value === 'duplex';
+  document.getElementById('duplex-note').classList.toggle('hidden', !duplex);
+}
+
+function setRange(preset) {
+  const y = now.getFullYear(), m = now.getMonth() + 1;
+  let s, e;
+  if (preset === 'month')    { s = [y, m];       e = [y, m]; }
+  if (preset === 'quarter')  { const q = Math.floor((m-1)/3); s = [y, q*3+1]; e = [y, q*3+3]; }
+  if (preset === 'year')     { s = [y, 1];        e = [y, 12]; }
+  if (preset === 'nextyear') { s = [y+1, 1];      e = [y+1, 12]; }
+  if (preset === 'custom')   { document.getElementById('custom-range').style.display = 'flex'; highlightPreset('custom'); return; }
+  document.getElementById('print-start').value = `${s[0]}-${pad(s[1])}`;
+  document.getElementById('print-end').value   = `${e[0]}-${pad(e[1])}`;
+  document.getElementById('custom-range').style.display = preset === 'custom' ? 'flex' : 'none';
+  highlightPreset(preset);
+}
+function highlightPreset(active) {
+  const map = ['month','quarter','year','nextyear','custom'];
+  document.querySelectorAll('.range-preset').forEach((btn, i) =>
+    btn.classList.toggle('active', map[i] === active));
+}
+
+function selectPrintLayout(el) {
+  document.querySelectorAll('.print-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  printLayout = el.dataset.layout;
+}
+
+function executePrint() {
+  document.getElementById('print-modal').classList.add('hidden');
+  const layout    = printLayout;
+  const startVal  = document.getElementById('print-start').value;
+  const endVal    = document.getElementById('print-end').value;
+  const incCover  = document.getElementById('inc-cover').checked;
+  const incGoals  = document.getElementById('inc-goals').checked;
+  const incHabits = document.getElementById('inc-habits').checked;
+  const incColor  = document.getElementById('inc-color').checked;
+  const holeType  = document.getElementById('print-holes').value;
+  const duplex    = document.getElementById('print-duplex-sel').value === 'duplex';
+
+  const [sy, sm] = startVal.split('-').map(Number);
+  const [ey, em] = endVal.split('-').map(Number);
+
+  const pages = [];
+
+  if (incCover && (layout === 'both' || layout === 'month' || layout === 'week'))
+    pages.push(buildCoverPage(sy, sm, ey, em, incColor));
+
+  // collect month range
+  const monthList = [];
+  let cy2 = sy, cm2 = sm - 1;
+  while (cy2 < ey || (cy2 === ey && cm2 <= em - 1)) {
+    monthList.push({ y: cy2, m: cm2 });
+    cm2++; if (cm2 > 11) { cm2 = 0; cy2++; }
+  }
+
+  if (layout === 'month' || layout === 'both') {
+    monthList.forEach(({y, m}) => pages.push(buildMonthPage(y, m, incColor)));
+  }
+  if (layout === 'week' || layout === 'both') {
+    monthList.forEach(({y, m}) => {
+      const weeksInMonth = getWeeksInMonth(y, m);
+      weeksInMonth.forEach(ws => pages.push(buildWeekPage(ws, incColor)));
+    });
+  }
+  if (incHabits && (layout === 'tracker' || layout === 'both')) {
+    monthList.forEach(({y, m}) => pages.push(buildHabitPage(y, m, incColor)));
+  }
+  if (incGoals && (layout === 'tracker' || layout === 'both')) {
+    pages.push(buildGoalsNotesPage(incColor));
+  }
+
+  // apply duplex-aware margins and hole marks to every page
+  const finalPages = applyBinderLayout(pages, holeType, duplex);
+
+  document.getElementById('print-area').innerHTML = finalPages.join('');
+  setTimeout(() => { window.print(); }, 80);
+}
+
+// ── Binder layout: alternate margins for duplex, punch holes ──
+function applyBinderLayout(pages, holeType, duplex) {
+  return pages.map((html, i) => {
+    const pageNum = i + 1;
+    const isOdd = pageNum % 2 === 1;
+    // For duplex: odd=recto (front), gutter left; even=verso (back), gutter right
+    const gutterLeft  = duplex ? (isOdd  ? '0.85in' : '0.4in')  : '0.85in';
+    const gutterRight = duplex ? (isOdd  ? '0.4in'  : '0.85in') : '0.4in';
+    const stripSide   = duplex ? (isOdd  ? 'left'   : 'right')  : 'left';
+    const holes = buildHoles(holeType, stripSide, duplex ? (isOdd ? 'left' : 'right') : 'left');
+    // inject per-page inline overrides via a wrapper
+    return `<div class="pp" style="--gL:${gutterLeft};--gR:${gutterRight};--strip:${stripSide}">
+      ${holes}
+      <div class="pp-inner" style="margin-left:${gutterLeft};margin-right:${gutterRight}">
+        ${html}
+      </div>
+      <div style="position:absolute;bottom:0.2in;${stripSide==='left'?'right':'left'}:0.4in;font-size:7pt;color:#94a3b8;font-family:-apple-system,sans-serif">${pageNum}</div>
+    </div>`;
+  });
+}
+
+function buildHoles(type, side, align) {
+  if (type === 'none') return '';
+  const x = align === 'left' ? '0.28in' : 'calc(8.5in - 0.47in)';
+  const positions = {
+    '2': ['2.75in', '8.25in'],
+    '3': ['1.25in', '5.5in',  '9.75in'],
+    '4': ['1in',    '3.67in', '6.33in', '9in'],
+  }[type] || ['1.25in','5.5in','9.75in'];
+  return positions.map(top =>
+    `<div class="pp-hole" style="top:${top};left:${x};transform:translateX(-50%)"></div>`
+  ).join('');
+}
+
+// ── Cover Page ──
+function buildCoverPage(sy, sm, ey, em, color) {
+  const colorSwatches = [
+    '#4f46e5','#ef4444','#22c55e','#f59e0b','#a855f7',
+    '#ec4899','#14b8a6','#3b82f6','#f97316','#84cc16','#e2e8f0','#0f172a',
+  ];
+  const decor = colorSwatches.map(c =>
+    `<div class="cover-decor-cell" style="background:${color?c:'#e2e8f0'}"></div>`).join('');
+  const rangeStr = sy === ey && sm === em
+    ? `${MONTHS[sm-1]} ${sy}`
+    : sm === 1 && em === 12 && sy === ey
+    ? `${sy}`
+    : `${MONTHS[sm-1].slice(0,3)} ${sy} – ${MONTHS[em-1].slice(0,3)} ${ey}`;
+  return `
+    <div class="pp-cover pp-inner" style="margin:0;height:11in;padding:1in 0.85in">
+      <div class="cover-accent" style="background:${color?'#4f46e5':'#0f172a'}"></div>
+      <div class="cover-title">Planner</div>
+      <div class="cover-year" style="color:${color?'#4f46e5':'#475569'}">${rangeStr}</div>
+      <div class="cover-decor">${decor}</div>
+      <div class="cover-owner">
+        <div class="cover-owner-label">This planner belongs to</div>
+        <div class="cover-owner-line"></div>
+      </div>
+      <div class="cover-tagline">Plan your work. Work your plan.</div>
+    </div>`;
+}
+
+// ── Month Page ──
+function buildMonthPage(y, m, color) {
+  const first = new Date(y, m, 1).getDay();
+  const days  = new Date(y, m+1, 0).getDate();
+  const fe    = events.filter(e => e.date.startsWith(`${y}-${pad(m+1)}`));
+  const evByDate = {};
+  fe.forEach(e => { if (!evByDate[e.date]) evByDate[e.date] = []; evByDate[e.date].push(e); });
+
+  const prevMonthDays = new Date(y, m, 0).getDate();
+  let cells = [];
+  for (let i = first - 1; i >= 0; i--) cells.push({ d: prevMonthDays - i, other: true, dk: '' });
+  for (let d = 1; d <= days; d++) cells.push({ d, other: false, dk: `${y}-${pad(m+1)}-${pad(d)}` });
+  while (cells.length < 42) { cells.push({ d: cells.length - first - days + 1, other: true, dk: '' }); }
+
+  const dowRow = DOWS_SHORT.map(d => `<div class="pp-dow-cell">${d}</div>`).join('');
+  let weeksHtml = '';
+  for (let w = 0; w < 6; w++) {
+    const rowCells = cells.slice(w*7, w*7+7);
+    const anyCell = rowCells.some(c => !c.other);
+    if (w === 5 && !anyCell) continue;
+    weeksHtml += '<div class="pp-week-row">';
+    rowCells.forEach(c => {
+      const isToday2 = c.dk === today;
+      const dayEvs = c.dk ? (evByDate[c.dk] || []) : [];
+      let evHtml = dayEvs.slice(0,3).map(e =>
+        `<div class="pp-ev" style="background:${color?e.color+'22':'#f1f5f9'};color:${color?e.color:'#475569'}">${e.start?e.start+' ':''}${e.title}</div>`
+      ).join('');
+      if (dayEvs.length > 3) evHtml += `<div style="font-size:6.5pt;color:#94a3b8;font-family:sans-serif">+${dayEvs.length-3} more</div>`;
+      weeksHtml += `<div class="pp-day-cell ${c.other?'other-month':''}">
+        <div class="pp-day-num ${isToday2?'today-num':''}" style="${isToday2&&color?'background:#4f46e5;color:#fff':isToday2?'background:#0f172a;color:#fff':''}">${c.d}</div>
+        ${evHtml}
+      </div>`;
+    });
+    weeksHtml += '</div>';
+  }
+
+  // bottom strip: goals + notes lines
+  let goalsHtml = goals.slice(0,4).map(g => {
+    const pct = Math.min(100,Math.round((g.cur/g.target)*100));
+    return `<div class="pp-goal-row">
+      <span class="pp-goal-label">${g.name}</span>
+      <div class="pp-goal-bar-bg" style="flex:1"><div class="pp-goal-bar-fill" style="width:${pct}%;background:${color?g.color:'#475569'}"></div></div>
+      <span class="pp-goal-label" style="width:28px;text-align:right">${pct}%</span>
+    </div>`;
+  }).join('');
+
+  const noteLines = Array(6).fill('<div class="pp-notes-line"></div>').join('');
+
+  return `
+    <div class="pp-month-header">
+      <span class="pp-month-name">${MONTHS[m]}</span>
+      <span class="pp-month-year">${y}</span>
+    </div>
+    <div class="pp-month-grid" style="flex:1;display:flex;flex-direction:column">
+      <div class="pp-dow-row">${dowRow}</div>
+      <div style="flex:1;display:flex;flex-direction:column">${weeksHtml}</div>
+    </div>
+    <div class="pp-bottom-strip">
+      <div><div class="pp-strip-title">Goals</div>${goalsHtml||'<div style="font-size:7.5pt;color:#94a3b8">No goals set</div>'}</div>
+      <div><div class="pp-strip-title">Notes</div>${noteLines}</div>
+    </div>`;
+}
+
+// ── Week Page ──
+function getWeeksInMonth(y, m) {
+  const weeks = [];
+  const first = new Date(y, m, 1);
+  let ws = new Date(first);
+  ws.setDate(ws.getDate() - ws.getDay()); // Sunday
+  while (ws.getMonth() <= m && ws.getFullYear() <= y) {
+    const we = new Date(ws); we.setDate(we.getDate() + 6);
+    if (we.getMonth() >= m || we.getFullYear() >= y) weeks.push(new Date(ws));
+    ws.setDate(ws.getDate() + 7);
+    if (ws.getMonth() > m && ws.getFullYear() >= y) break;
+  }
+  return weeks;
+}
+
+function buildWeekPage(wsDate, color) {
+  const HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21];
+  let headerCols = '<div class="pp-time-head"></div>';
+  let dayCols = '';
+
+  for (let d = 0; d < 7; d++) {
+    const dt = new Date(wsDate); dt.setDate(dt.getDate() + d);
+    const dk = dateKey(dt);
+    const isToday2 = dk === today;
+    headerCols += `<div class="pp-week-day-head ${isToday2?'wk-today':''}">
+      <div class="pp-week-day-name">${DOWS_SHORT[dt.getDay()]}</div>
+      <div class="pp-week-day-date">${dt.getDate()}</div>
+    </div>`;
+    const dayEvs = events.filter(e => e.date === dk && e.start);
+    let evPills = dayEvs.map(e =>
+      `<div class="pp-week-ev" style="background:${color?e.color+'22':'#f1f5f9'};color:${color?e.color:'#475569'}">${e.start} ${e.title}</div>`
+    ).join('');
+    const hourLines = HOURS.map(() => '<div class="pp-week-hour"></div>').join('');
+    dayCols += `<div class="pp-week-day-col"><div class="pp-week-rows">${hourLines}</div>${evPills}</div>`;
+  }
+
+  const timeLabels = '<div class="pp-time-head"></div>' + HOURS.map(h =>
+    `<div class="pp-time-label">${h===12?'12p':h<12?h+'a':(h-12)+'p'}</div>`
+  ).join('');
+
+  const we = new Date(wsDate); we.setDate(we.getDate()+6);
+  const rangeStr = wsDate.getMonth() === we.getMonth()
+    ? `${MONTHS[wsDate.getMonth()]} ${wsDate.getDate()}–${we.getDate()}, ${wsDate.getFullYear()}`
+    : `${MONTHS[wsDate.getMonth()].slice(0,3)} ${wsDate.getDate()} – ${MONTHS[we.getMonth()].slice(0,3)} ${we.getDate()}, ${wsDate.getFullYear()}`;
+
+  return `
+    <div class="pp-week-header">
+      <span class="pp-week-label">Week of ${MONTHS[wsDate.getMonth()]} ${wsDate.getDate()}</span>
+      <span class="pp-week-range">${rangeStr}</span>
+    </div>
+    <div class="pp-week-body" style="flex:1">
+      <div class="pp-week-time-col" style="display:flex;flex-direction:column">${timeLabels}</div>
+      ${dayCols}
+    </div>
+    <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><div class="pp-strip-title">Priorities this week</div>${Array(3).fill('<div class="pp-notes-line" style="margin-bottom:6px"></div>').join('')}</div>
+      <div><div class="pp-strip-title">Notes</div>${Array(3).fill('<div class="pp-notes-line" style="margin-bottom:6px"></div>').join('')}</div>
+    </div>`;
+}
+
+// ── Habit Tracker Page ──
+function buildHabitPage(y, m, color) {
+  const days = new Date(y, m+1, 0).getDate();
+  const dayNums = Array.from({length: days}, (_, i) => i+1);
+  const thDays = dayNums.map(d => `<th style="width:18px;padding:2px 1px;text-align:center;font-size:6pt">${d}</th>`).join('');
+  const rows = habits.map(h => {
+    const boxes = dayNums.map(d => {
+      const dk = `${y}-${pad(m+1)}-${pad(d)}`;
+      const done = !!(habitLog[dk]?.[h.id]);
+      return `<td class="habit-box-cell"><div class="pp-tracker-box" style="${done?(color?`background:${h.color};border-color:${h.color}`:'background:#0f172a;border-color:#0f172a'):''}"></div></td>`;
+    }).join('');
+    return `<tr><td class="habit-name" style="font-size:8.5pt;padding:5px 8px 5px 0">${h.name}</td>${boxes}</tr>`;
+  }).join('');
+
+  const blankRows = Math.max(0, 6 - habits.length);
+  const blanks = Array(blankRows).fill(
+    `<tr><td style="border-bottom:1px solid #f1f5f9;height:26px;width:1.8in"></td>${dayNums.map(()=>`<td class="habit-box-cell"><div class="pp-tracker-box"></div></td>`).join('')}</tr>`
+  ).join('');
+
+  return `
+    <div class="pp-tracker-header">
+      <div class="pp-tracker-title">Habit Tracker — ${MONTHS[m]} ${y}</div>
+    </div>
+    <table class="pp-tracker-table">
+      <thead><tr><th class="habit-name-col">Habit</th>${thDays}</tr></thead>
+      <tbody>${rows}${blanks}</tbody>
+    </table>
+    <div style="margin-top:18px">
+      <div class="pp-strip-title">Monthly Reflection</div>
+      ${Array(8).fill('<div class="pp-notes-line" style="margin-bottom:8px"></div>').join('')}
+    </div>`;
+}
+
+// ── Goals & Notes Page ──
+function buildGoalsNotesPage(color) {
+  const goalRows = goals.map(g => {
+    const pct = Math.min(100, Math.round((g.cur/g.target)*100));
+    return `<div class="pp-goal-print-row">
+      <div class="pp-goal-print-name">${g.name} <span style="font-weight:400;color:#94a3b8">${g.cur} / ${g.target}</span></div>
+      <div class="pp-goal-print-bar"><div class="pp-goal-print-fill" style="width:${pct}%;background:${color?g.color:'#0f172a'}"></div></div>
+      <div class="pp-goal-print-pct">${pct}% complete</div>
+    </div>`;
+  }).join('');
+
+  const blankGoals = Math.max(0, 5 - goals.length);
+  const blankGoalRows = Array(blankGoals).fill(`
+    <div style="margin-bottom:14px">
+      <div style="border-bottom:1px solid #e2e8f0;height:20px;margin-bottom:4px"></div>
+      <div class="pp-goal-print-bar"><div style="width:0"></div></div>
+      <div style="font-size:8pt;color:#e2e8f0">0%</div>
+    </div>`).join('');
+
+  const noteLines = Array(18).fill('<div class="pp-line"></div>').join('');
+
+  return `
+    <div style="border-bottom:3px solid #0f172a;padding-bottom:8px;margin-bottom:16px;display:flex;align-items:baseline;justify-content:space-between">
+      <span style="font-size:20pt;font-weight:900;font-family:-apple-system,sans-serif;color:#0f172a">Goals &amp; Notes</span>
+    </div>
+    <div class="pp-two-col-page">
+      <div>
+        <div class="pp-col-title">Goals</div>
+        ${goalRows}${blankGoalRows}
+      </div>
+      <div style="display:flex;flex-direction:column">
+        <div class="pp-col-title">Notes</div>
+        <div class="pp-lined">${noteLines}</div>
+      </div>
+    </div>`;
+}
+
+// ───────────────── INIT ─────────────────
+renderAll();
+</script>
+</body>
+</html>
