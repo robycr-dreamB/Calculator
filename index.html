@@ -263,12 +263,11 @@
               autocapitalize="off"
               spellcheck="false"
               placeholder="0"
-              oninput="handleInput(event)"
             >
             <div class="result-box">
               <span class="label">Result</span>
               <div class="result" id="resultValue" role="button" tabindex="0" aria-label="Tap to copy result">0</div>
-              <div class="status" id="statusText">Ready for input.</div>
+              <div class="status" id="statusText" role="status" aria-live="polite">Ready for input.</div>
             </div>
           </div>
         </section>
@@ -284,10 +283,6 @@
               <input id="autoCopy" type="checkbox" checked>
               <span>Try to copy automatically while typing</span>
             </label>
-            <label class="toggle">
-              <input id="clearAfterCopy" type="checkbox">
-              <span>Clear the input after a successful copy</span>
-            </label>
           </div>
 
           <p class="hint" style="margin: 18px 0 0;">
@@ -298,120 +293,133 @@
     </main>
   </div>
 
+  <!-- Visual reference derived from the live Calculator on 2026-10-01.
+       Preserve the repository's original icon.png alongside the production index.html.
+       Local-file clipboard support varies; validate on the deployed HTTPS page and iPad. -->
   <script>
-    var MULTIPLIER = 1.9;
+    const MULTIPLIER = 1.9;
+    const input = document.getElementById("sourceValue");
+    const resultValue = document.getElementById("resultValue");
+    const statusText = document.getElementById("statusText");
+    const copyButton = document.getElementById("copyButton");
+    const autoCopy = document.getElementById("autoCopy");
+    let currentResult = "";
+    let wasAway = false;
+    let revision = 0;
+    let copySequence = 0;
+    let pendingCopies = 0;
+    let keyboardNavigation = false;
 
-    var input = document.getElementById("sourceValue");
-    var resultValue = document.getElementById("resultValue");
-    var statusText = document.getElementById("statusText");
-    var copyButton = document.getElementById("copyButton");
-    var clearButton = document.getElementById("clearButton");
-    var autoCopy = document.getElementById("autoCopy");
-    var clearAfterCopy = document.getElementById("clearAfterCopy");
-
-    var currentResult = "";
-    var copyTimer = null;
-
-    function setStatus(message, kind) {
+    function setStatus(message, kind = "") {
       statusText.textContent = message;
-      statusText.className = kind ? "status " + kind : "status";
+      statusText.className = "status" + (kind ? " " + kind : "");
     }
-
-    function handleInput(e) {
-      var cleaned = e.target.value.replace(/[^0-9]/g, "");
-      e.target.value = cleaned;
-      updateResult();
-    }
-
-    function tryCopy(source) {
-      if (!currentResult) return;
-
-      if (!navigator.clipboard || !navigator.clipboard.writeText) {
-        setStatus("Clipboard not available. Result is shown above.", "warn");
-        return;
-      }
-
-      navigator.clipboard.writeText(currentResult).then(function () {
-        if (copyTimer) clearTimeout(copyTimer);
-
-        setStatus("Copied " + currentResult + (source === "auto" ? " automatically" : "") + ".", "good");
-
-        copyTimer = setTimeout(function () {
-          setStatus("Ready.");
-        }, 1400);
-
-        if (clearAfterCopy.checked) {
-          input.value = "";
-          currentResult = "";
-          resultValue.textContent = "0";
-          copyButton.disabled = true;
-          setStatus("Copied. Input cleared.", "good");
-        }
-      }).catch(function () {
-        setStatus("Clipboard blocked — tap Copy Result.", "warn");
-      });
-    }
-
-    function updateResult() {
-      var cleaned = input.value;
-
-      if (!cleaned) {
-        currentResult = "";
-        resultValue.textContent = "0";
-        copyButton.disabled = true;
-        setStatus("Ready.");
-        return;
-      }
-
-      var n = parseInt(cleaned, 10);
-      currentResult = Math.round(n * MULTIPLIER).toString();
-      resultValue.textContent = currentResult;
-      copyButton.disabled = false;
-
-      if (autoCopy.checked) {
-        tryCopy("auto");
-      } else {
-        setStatus("Tap Copy Result to copy.");
-      }
-    }
-
-    copyButton.addEventListener("click", function () {
-      if (!currentResult) {
-        setStatus("Enter a number first.", "warn");
-        return;
-      }
-      tryCopy("button");
-    });
-
-    resultValue.addEventListener("click", function () {
-      if (!currentResult) return;
-      tryCopy("button");
-    });
-
-    resultValue.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        tryCopy("button");
-      }
-    });
-
-    clearButton.addEventListener("click", function () {
+    function resetForNextEntry() {
+      revision++;
       input.value = "";
       currentResult = "";
       resultValue.textContent = "0";
       copyButton.disabled = true;
-      setStatus("Cleared.");
+      wasAway = false;
+      setStatus("Ready for input.");
+      // Resetting never writes to the clipboard and never triggers an input event.
+    }
+    function beginEntry() {
+      if (wasAway) resetForNextEntry();
+    }
+    function tryCopy() {
+      if (currentResult === "") return;
+      const value = currentResult;
+      const atRevision = revision;
+      const sequence = ++copySequence;
+      const stillCurrent = () => atRevision === revision && sequence === copySequence;
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        setStatus("Clipboard unavailable — open in Safari over HTTPS and tap Copy Result.", "warn");
+        return;
+      }
+      pendingCopies++;
+      // Invoke inside the input/tap handler to retain Safari's user activation.
+      let write;
+      try { write = navigator.clipboard.writeText(value); }
+      catch (error) { write = Promise.reject(error); }
+      Promise.resolve(write).then(() => {
+        if (stillCurrent()) setStatus("Copied " + value + ".", "good");
+      }).catch(() => {
+        if (stillCurrent()) setStatus("Clipboard blocked — tap Copy Result.", "warn");
+      }).finally(() => { pendingCopies--; });
+    }
+    function handleInput() {
+      const raw = input.value;
+      const cleaned = raw.replace(/[^0-9]/g, "");
+      // Ordinary iPad digit entry must not reassign input.value.
+      if (raw !== cleaned) {
+        const caret = raw.slice(0, input.selectionStart ?? raw.length).replace(/[^0-9]/g, "").length;
+        input.value = cleaned;
+        input.setSelectionRange(caret, caret);
+      }
+      revision++;
+      if (cleaned === "") {
+        currentResult = "";
+        resultValue.textContent = "0";
+        copyButton.disabled = true;
+        setStatus("Ready for input.");
+        return;
+      }
+      const n = Number(cleaned);
+      const rounded = Math.round(n * MULTIPLIER);
+      if (!Number.isSafeInteger(n) || !Number.isSafeInteger(rounded)) {
+        currentResult = "";
+        resultValue.textContent = "—";
+        copyButton.disabled = true;
+        setStatus("Number too large. Enter a smaller whole number.", "warn");
+        return;
+      }
+      currentResult = String(rounded);
+      resultValue.textContent = currentResult;
+      copyButton.disabled = false;
+      setStatus(autoCopy.checked ? "Copying…" : "Tap Result or Copy Result to copy.");
+      if (autoCopy.checked) tryCopy();
+    }
+    input.addEventListener("input", handleInput);
+    input.addEventListener("pointerdown", beginEntry);
+    input.addEventListener("beforeinput", beginEntry);
+    input.addEventListener("keydown", event => {
+      if (event.key.length === 1 || event.key === "Backspace" || event.key === "Delete") beginEntry();
+    });
+    // A restored browser focus is not proof of a deliberate user interaction.
+    document.addEventListener("keydown", event => {
+      if (event.key === "Tab") {
+        keyboardNavigation = true;
+        setTimeout(() => { keyboardNavigation = false; }, 0);
+      }
+    }, true);
+    input.addEventListener("focus", () => { if (keyboardNavigation) beginEntry(); });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") wasAway = true;
+    });
+    window.addEventListener("pagehide", () => { wasAway = true; });
+    window.addEventListener("blur", () => {
+      // Field blur is intentionally not observed. Clipboard prompts alone are not an away cycle.
+      if (pendingCopies === 0) wasAway = true;
+    });
+    // No foreground, pageshow, or window-focus handler resets, focuses, or copies.
+    copyButton.addEventListener("click", tryCopy);
+    resultValue.addEventListener("click", tryCopy);
+    resultValue.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        tryCopy();
+      }
+    });
+    document.getElementById("clearButton").addEventListener("click", () => {
+      resetForNextEntry();
       input.focus();
     });
-
-    autoCopy.addEventListener("change", function () {
-      if (input.value) updateResult();
-    });
-
-    window.addEventListener("pageshow", function () {
-      setStatus("Ready.");
-      if (input.value) updateResult();
-      input.focus();
+    autoCopy.addEventListener("change", () => {
+      if (currentResult !== "") {
+        if (autoCopy.checked) tryCopy();
+        else setStatus("Tap Result or Copy Result to copy.");
+      }
     });
   </script>
 </body>
